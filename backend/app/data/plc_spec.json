@@ -1,0 +1,40 @@
+{
+  "_comment": "PLC 기준 데이터. 매뉴얼로 확인되지 않은 값은 verified=false 로 표시한다.",
+  "series": {
+    "iQ-R": {
+      "notation": "hex",
+      "software": ["GX Works3"],
+      "languages": ["ladder", "st"],
+      "source": "MELSEC iQ-R CPU Module User's Manual (Application) - 디바이스 점수 표",
+      "cpus": {
+        "R00CPU": { "max_x": 4096, "max_y": 4096, "verified": false },
+        "R01CPU": { "max_x": 4096, "max_y": 4096, "verified": false },
+        "R02CPU": { "max_x": 4096, "max_y": 4096, "verified": false },
+        "R04CPU": { "max_x": 4096, "max_y": 4096, "verified": false },
+        "R08CPU": { "max_x": 4096, "max_y": 4096, "verified": false },
+        "R16CPU": { "max_x": 4096, "max_y": 4096, "verified": false },
+        "R32CPU": { "max_x": 4096, "max_y": 4096, "verified": false },
+        "R120CPU": { "max_x": 4096, "max_y": 4096, "verified": false }
+      }
+    },
+    "iQ-F": {
+      "notation": "octal",
+      "software": ["GX Works3"],
+      "languages": ["ladder", "st"],
+      "source": "MELSEC iQ-F FX5 User's Manual (Application) - 입출력 점수 표",
+      "cpus": {
+        "FX5U": { "max_x": 256, "max_y": 256, "verified": false },
+        "FX5UC": { "max_x": 256, "max_y": 256, "verified": false },
+        "FX5UJ": { "max_x": 256, "max_y": 256, "verified": false }
+      }
+    }
+  },
+  "options": {
+    "language_labels": { "ladder": "래더(Ladder)", "st": "ST (구조화 텍스트)" },
+    "control_targets": ["컨베이어", "모터 기동·정지", "실린더(공압·유압)", "탱크·레벨", "신호등", "기타"],
+    "io_kinds": ["푸시버튼 NO", "푸시버튼 NC", "센서", "리미트스위치", "솔레노이드", "모터", "램프", "기타"],
+    "modules": ["아날로그 입력", "아날로그 출력", "고속 카운터", "위치결정", "통신(Ethernet)", "통신(RS-485)"],
+    "operation_modes": ["자동", "수동", "원점복귀", "점검"]
+  },
+  "safety_notice": "완성된 회로는 결코 안전을 보장하지 않으며, 실제 설비 적용 전 전문가의 추가 확인이 필요합니다."
+}

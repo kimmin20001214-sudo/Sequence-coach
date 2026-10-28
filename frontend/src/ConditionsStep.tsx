@@ -5,11 +5,12 @@ interface Props {
   conditions: Condition[];
   setConditions: (c: Condition[]) => void;
   error: string;
+  saving: boolean;
   onBack: () => void;
   onSave: () => void;
 }
 
-export default function ConditionsStep({ conditions, setConditions, error, onBack, onSave }: Props) {
+export default function ConditionsStep({ conditions, setConditions, error, saving, onBack, onSave }: Props) {
   const set = (i: number, patch: Partial<Condition>) =>
     setConditions(conditions.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
   const remove = (i: number) => {
@@ -37,7 +38,7 @@ export default function ConditionsStep({ conditions, setConditions, error, onBac
       </Card>
       <div className="actions">
         <button type="button" className="btn ghost" onClick={onBack}>← 이전</button>
-        <button type="button" className="btn primary" onClick={onSave}>저장</button>
+        <button type="button" className="btn primary" disabled={saving} onClick={onSave}>{saving ? "저장 중…" : "저장"}</button>
       </div>
     </>
   );
