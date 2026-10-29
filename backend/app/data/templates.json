@@ -1,0 +1,80 @@
+{
+  "_comment": "기본 제공 템플릿. 'config'는 화면 Config의 일부, 비어 있는 항목은 화면 기본값을 쓴다. 점수·디바이스는 예시이므로 실제 설비에 맞게 고쳐 쓴다.",
+  "templates": [
+    {
+      "id": "builtin-motor",
+      "name": "모터 기동·정지 (자기유지)",
+      "builtin": true,
+      "payload": {
+        "config": {
+          "series": "Q", "cpu": "Q06HCPU", "language": "ladder", "software": "GX Works2",
+          "x_points": "16", "y_points": "16", "control_target": "모터 기동·정지",
+          "emergency_stop": { "used": true, "device": "X2" },
+          "io_list": [
+            { "device": "X0", "name": "START_PB", "kind": "푸시버튼 NO", "desc": "기동 버튼" },
+            { "device": "X1", "name": "STOP_PB", "kind": "푸시버튼 NC", "desc": "정지 버튼" },
+            { "device": "X2", "name": "EMG", "kind": "푸시버튼 NC", "desc": "비상정지" },
+            { "device": "Y0", "name": "MOTOR", "kind": "모터", "desc": "모터 접촉기" }
+          ]
+        },
+        "conditions": [
+          { "text": "START_PB를 누르면 MOTOR가 켜지고 손을 떼도 유지된다 (자기유지).", "must_pass": true },
+          { "text": "STOP_PB를 누르면 MOTOR가 꺼진다.", "must_pass": true },
+          { "text": "EMG가 눌리면 모든 출력이 꺼지고, 해제 후 START_PB를 다시 눌러야 기동한다.", "must_pass": true }
+        ]
+      }
+    },
+    {
+      "id": "builtin-conveyor",
+      "name": "컨베이어 + 감지 센서 정지",
+      "builtin": true,
+      "payload": {
+        "config": {
+          "series": "Q", "cpu": "Q06HCPU", "language": "ladder", "software": "GX Works2",
+          "x_points": "16", "y_points": "16", "control_target": "컨베이어",
+          "emergency_stop": { "used": true, "device": "X3" },
+          "timer_unit_ms": 100,
+          "io_list": [
+            { "device": "X0", "name": "START_PB", "kind": "푸시버튼 NO", "desc": "기동" },
+            { "device": "X1", "name": "STOP_PB", "kind": "푸시버튼 NC", "desc": "정지" },
+            { "device": "X2", "name": "END_SENSOR", "kind": "센서", "desc": "끝단 물체 감지" },
+            { "device": "X3", "name": "EMG", "kind": "푸시버튼 NC", "desc": "비상정지" },
+            { "device": "Y0", "name": "CONVEYOR", "kind": "모터", "desc": "컨베이어 모터" },
+            { "device": "Y1", "name": "RUN_LAMP", "kind": "램프", "desc": "운전 표시등" }
+          ]
+        },
+        "conditions": [
+          { "text": "START_PB를 누르면 CONVEYOR가 가동되고 RUN_LAMP가 켜진다.", "must_pass": true },
+          { "text": "END_SENSOR가 물체를 감지하면 CONVEYOR가 멈추고, 물체가 제거되면 3초 후 자동 재가동한다.", "must_pass": true },
+          { "text": "STOP_PB 또는 EMG 입력 시 모든 출력이 꺼진다.", "must_pass": true }
+        ]
+      }
+    },
+    {
+      "id": "builtin-cylinder",
+      "name": "실린더 전진·후진 왕복",
+      "builtin": true,
+      "payload": {
+        "config": {
+          "series": "Q", "cpu": "Q06HCPU", "language": "ladder", "software": "GX Works2",
+          "x_points": "16", "y_points": "16", "control_target": "실린더(공압·유압)",
+          "emergency_stop": { "used": true, "device": "X3" },
+          "io_list": [
+            { "device": "X0", "name": "START_PB", "kind": "푸시버튼 NO", "desc": "사이클 시작" },
+            { "device": "X1", "name": "LS_FWD", "kind": "리미트스위치", "desc": "전진 끝 감지" },
+            { "device": "X2", "name": "LS_BWD", "kind": "리미트스위치", "desc": "후진 끝 감지" },
+            { "device": "X3", "name": "EMG", "kind": "푸시버튼 NC", "desc": "비상정지" },
+            { "device": "Y0", "name": "SOL_FWD", "kind": "솔레노이드", "desc": "전진 밸브" },
+            { "device": "Y1", "name": "SOL_BWD", "kind": "솔레노이드", "desc": "후진 밸브" }
+          ]
+        },
+        "conditions": [
+          { "text": "LS_BWD가 ON인 상태에서 START_PB를 누르면 SOL_FWD가 켜져 전진한다.", "must_pass": true },
+          { "text": "LS_FWD가 ON이 되면 SOL_FWD를 끄고 SOL_BWD를 켜서 후진한다.", "must_pass": true },
+          { "text": "SOL_FWD와 SOL_BWD는 동시에 켜지지 않는다 (인터록).", "must_pass": true },
+          { "text": "EMG 입력 시 모든 출력이 꺼진다.", "must_pass": true }
+        ]
+      }
+    }
+  ]
+}

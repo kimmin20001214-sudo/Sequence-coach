@@ -1,0 +1,32 @@
+{
+  "_comment": "MVP 래더 기본 명령어. 설계·검증 에이전트의 허용 범위. 확장 시 매뉴얼 기준으로 추가한다.",
+  "details": {
+    "LD": "a접점 연산 시작",
+    "LDI": "b접점 연산 시작",
+    "AND": "a접점 직렬",
+    "ANI": "b접점 직렬",
+    "OR": "a접점 병렬",
+    "ORI": "b접점 병렬",
+    "ANB": "블록 직렬",
+    "ORB": "블록 병렬",
+    "OUT": "코일 출력",
+    "SET": "래치 ON",
+    "RST": "래치 OFF/리셋",
+    "PLS": "상승 펄스",
+    "PLF": "하강 펄스",
+    "MPS": "연산 결과 푸시",
+    "MRD": "연산 결과 읽기",
+    "MPP": "연산 결과 팝",
+    "END": "프로그램 종료",
+    "TON": "온 딜레이 타이머",
+    "OUT T": "타이머 출력(Q시리즈)",
+    "OUT C": "카운터 출력(Q시리즈)",
+    "CTU": "업 카운터",
+    "MOV": "데이터 전송"
+  },
+  "series": {
+    "Q": ["LD", "LDI", "AND", "ANI", "OR", "ORI", "ANB", "ORB", "OUT", "SET", "RST", "PLS", "PLF", "MPS", "MRD", "MPP", "END", "OUT T", "OUT C", "MOV"],
+    "iQ-R": ["LD", "LDI", "AND", "ANI", "OR", "ORI", "ANB", "ORB", "OUT", "SET", "RST", "PLS", "PLF", "MPS", "MRD", "MPP", "END", "TON", "CTU", "MOV"],
+    "iQ-F": ["LD", "LDI", "AND", "ANI", "OR", "ORI", "ANB", "ORB", "OUT", "SET", "RST", "PLS", "PLF", "MPS", "MRD", "MPP", "END", "TON", "CTU", "MOV"]
+  }
+}
