@@ -1,6 +1,29 @@
 {
   "_comment": "PLC 기준 데이터. 매뉴얼로 확인되지 않은 값은 verified=false 로 표시한다.",
   "series": {
+    "Q": {
+      "notation": "hex",
+      "software": ["GX Works2", "GX Developer"],
+      "languages": ["ladder", "st"],
+      "source": "MELSEC-Q CPU Module User's Manual (Function Explanation, Program Fundamentals) - 입출력 점수 표",
+      "cpus": {
+        "Q00JCPU": { "max_x": 2048, "max_y": 2048, "verified": false },
+        "Q00CPU": { "max_x": 8192, "max_y": 8192, "verified": false },
+        "Q01CPU": { "max_x": 8192, "max_y": 8192, "verified": false },
+        "Q02CPU": { "max_x": 8192, "max_y": 8192, "verified": false },
+        "Q02HCPU": { "max_x": 8192, "max_y": 8192, "verified": false },
+        "Q06HCPU": { "max_x": 8192, "max_y": 8192, "verified": false },
+        "Q12HCPU": { "max_x": 8192, "max_y": 8192, "verified": false },
+        "Q25HCPU": { "max_x": 8192, "max_y": 8192, "verified": false },
+        "Q03UDCPU": { "max_x": 8192, "max_y": 8192, "verified": false },
+        "Q04UDHCPU": { "max_x": 8192, "max_y": 8192, "verified": false },
+        "Q06UDHCPU": { "max_x": 8192, "max_y": 8192, "verified": false },
+        "Q10UDHCPU": { "max_x": 8192, "max_y": 8192, "verified": false },
+        "Q13UDHCPU": { "max_x": 8192, "max_y": 8192, "verified": false },
+        "Q20UDHCPU": { "max_x": 8192, "max_y": 8192, "verified": false },
+        "Q26UDHCPU": { "max_x": 8192, "max_y": 8192, "verified": false }
+      }
+    },
     "iQ-R": {
       "notation": "hex",
       "software": ["GX Works3"],

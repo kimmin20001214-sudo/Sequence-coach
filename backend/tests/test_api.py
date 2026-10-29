@@ -8,12 +8,15 @@ def test_health(client):
 
 def test_meta(client):
     data = client.get("/meta").json()
-    assert set(data["series"]) == {"iQ-R", "iQ-F"}
+    assert set(data["series"]) == {"Q", "iQ-R", "iQ-F"}
     assert "safety_notice" in data and data["options"]["control_targets"]
-    assert client.get("/meta/series").json() == ["iQ-R", "iQ-F"]
+    assert client.get("/meta/series").json() == ["Q", "iQ-R", "iQ-F"]
+    assert is_compatible("Q", "Q06HCPU", "ladder", "GX Works2")
+    assert not is_compatible("Q", "Q06HCPU", "ladder", "GX Works3")
     assert "FX5U" in client.get("/meta/cpus", params={"series": "iQ-F"}).json()
     assert "LD" in client.get("/meta/instructions", params={"series": "iQ-R"}).json()
-    assert client.get("/meta/cpus", params={"series": "Q"}).status_code == 404
+    assert "OUT T" in client.get("/meta/instructions", params={"series": "Q"}).json()
+    assert client.get("/meta/cpus", params={"series": "ZZ"}).status_code == 404
 
 
 def test_compat_and_device_parsing():
