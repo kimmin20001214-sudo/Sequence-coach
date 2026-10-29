@@ -76,3 +76,22 @@ def test_emergency_stop_and_name(client):
 
 def test_get_missing_project(client):
     assert client.get("/projects/nope").status_code == 404
+
+
+def test_templates(client):
+    builtin = client.get("/templates").json()
+    assert len(builtin) >= 3 and all(t["builtin"] for t in builtin)
+    for t in builtin:  # 기본 템플릿은 서버 검증을 통과해야 한다
+        cfg = t["payload"]["config"]
+        body = {
+            "plc_config": {**cfg, "x_points": int(cfg["x_points"]), "y_points": int(cfg["y_points"]), "safety_ack": True},
+            "io_list": cfg["io_list"],
+            "conditions": t["payload"]["conditions"],
+        }
+        assert client.post("/validate", json=body).json()["ok"], t["id"]
+    r = client.post("/templates", json={"name": " 내 설비 ", "payload": {"config": {}, "conditions": []}})
+    assert r.status_code == 201 and r.json()["name"] == "내 설비"
+    assert len(client.get("/templates").json()) == len(builtin) + 1
+    assert client.delete(f"/templates/{r.json()['id']}").status_code == 204
+    assert client.delete("/templates/builtin-motor").status_code == 404
+    assert client.post("/templates", json={"name": "  ", "payload": {}}).status_code == 422

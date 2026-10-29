@@ -1,4 +1,4 @@
-import type { Meta } from "./spec";
+import type { Config, Meta } from "./spec";
 import type { ValidationResult } from "./validate";
 
 const BASE = "/api";
@@ -21,6 +21,42 @@ export async function fetchMeta(): Promise<Meta> {
   if (!r.ok) throw new ApiError(`기준 데이터를 불러오지 못했어요. (${r.status})`);
   return r.json();
 }
+
+export interface TemplatePayload {
+  config: Partial<Config>;
+  conditions: { text: string; must_pass: boolean }[];
+}
+
+export interface Template {
+  id: string;
+  name: string;
+  builtin: boolean;
+  payload: TemplatePayload;
+}
+
+async function call(path: string, init?: RequestInit): Promise<Response> {
+  let r: Response;
+  try {
+    r = await fetch(`${BASE}${path}`, init);
+  } catch {
+    throw new ApiError("서버에 연결할 수 없어요. 백엔드가 실행 중인지 확인해 주세요.");
+  }
+  if (!r.ok) throw new ApiError(`요청에 실패했어요. (${r.status})`);
+  return r;
+}
+
+export const fetchTemplates = async (): Promise<Template[]> => (await call("/templates")).json();
+
+export const saveTemplate = async (name: string, payload: TemplatePayload): Promise<Template> =>
+  (await call("/templates", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, payload }),
+  })).json();
+
+export const deleteTemplate = async (id: string): Promise<void> => {
+  await call(`/templates/${id}`, { method: "DELETE" });
+};
 
 export interface SavedProject {
   id: string;

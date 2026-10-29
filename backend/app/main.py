@@ -2,8 +2,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
 from . import db
-from .schemas import ProjectInput
-from .spec import get_series, load_instructions, load_spec
+from .schemas import ProjectInput, TemplateInput
+from .spec import get_series, load_builtin_templates, load_instructions, load_spec
 from .validation import has_errors, validate_project
 
 app = FastAPI(title="MELSEC PLC 회로 설계 지원 API")
@@ -62,6 +62,22 @@ def create_project(project: ProjectInput):
         {**c, "id": f"C{i + 1}", "text": c["text"].strip()} for i, c in enumerate(payload["conditions"]) if c["text"].strip()
     ]
     return db.create_project(cfg["project_name"], payload)
+
+
+@app.get("/templates")
+def templates():
+    return load_builtin_templates() + db.list_templates()
+
+
+@app.post("/templates", status_code=201)
+def create_template(t: TemplateInput):
+    return db.create_template(t.name, t.payload)
+
+
+@app.delete("/templates/{template_id}", status_code=204)
+def delete_template(template_id: str):
+    if not db.delete_template(template_id):
+        raise HTTPException(404, "삭제할 수 있는 템플릿이 없어요. (기본 템플릿은 삭제할 수 없어요.)")
 
 
 @app.get("/projects")

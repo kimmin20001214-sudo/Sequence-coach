@@ -17,6 +17,11 @@ def load_instructions() -> dict:
     return json.loads((DATA_DIR / "instructions.json").read_text(encoding="utf-8"))
 
 
+@lru_cache
+def load_builtin_templates() -> list[dict]:
+    return json.loads((DATA_DIR / "templates.json").read_text(encoding="utf-8"))["templates"]
+
+
 def get_series(series: str) -> dict | None:
     return load_spec()["series"].get(series)
 

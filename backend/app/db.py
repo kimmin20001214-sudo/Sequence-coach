@@ -18,7 +18,34 @@ def _connect() -> sqlite3.Connection:
         "id TEXT PRIMARY KEY, name TEXT NOT NULL, payload TEXT NOT NULL, "
         "status TEXT NOT NULL, created_at TEXT NOT NULL)"
     )
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS templates ("
+        "id TEXT PRIMARY KEY, name TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)"
+    )
     return con
+
+
+def list_templates() -> list[dict]:
+    with _connect() as con:
+        rows = con.execute("SELECT * FROM templates ORDER BY created_at DESC").fetchall()
+    return [
+        {"id": r["id"], "name": r["name"], "builtin": False, "payload": json.loads(r["payload"])} for r in rows
+    ]
+
+
+def create_template(name: str, payload: dict) -> dict:
+    tid = "user-" + uuid.uuid4().hex[:10]
+    with _connect() as con:
+        con.execute(
+            "INSERT INTO templates VALUES (?, ?, ?, ?)",
+            (tid, name, json.dumps(payload, ensure_ascii=False), datetime.now(timezone.utc).isoformat(timespec="seconds")),
+        )
+    return {"id": tid, "name": name, "builtin": False, "payload": payload}
+
+
+def delete_template(tid: str) -> bool:
+    with _connect() as con:
+        return con.execute("DELETE FROM templates WHERE id = ?", (tid,)).rowcount > 0
 
 
 def create_project(name: str, payload: dict) -> dict:

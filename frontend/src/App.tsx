@@ -120,6 +120,8 @@ function Wizard() {
           {step === 0 && (
             <SettingsStep
               cfg={cfg}
+              conditions={conditions}
+              setConditions={setConditions}
               setCfg={(c) => { setCfg(c); if (result) setResult(validateConfig(c)); }}
               result={result}
               onNext={next}

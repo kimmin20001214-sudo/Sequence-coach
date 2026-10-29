@@ -1,18 +1,25 @@
 import {
-  SPEC, LANGUAGE_LABELS, CONTROL_TARGETS, IO_KINDS, MODULES, OPERATION_MODES, SAFETY_NOTICE, emptyRow,
-  type Config,
+  SPEC, LANGUAGE_LABELS, CONTROL_TARGETS, IO_KINDS, MODULES, OPERATION_MODES, SAFETY_NOTICE, emptyRow, initialConfig,
+  type Config, type Condition,
 } from "./spec";
+import { useRef, useState } from "react";
 import type { ValidationResult } from "./validate";
 import { Card, Field, Chips, Segmented } from "./ui";
+import TemplatesCard from "./TemplatesCard";
+import { parseIoCsv, downloadCsvTemplate } from "./csv";
 
 interface Props {
   cfg: Config;
   setCfg: (c: Config) => void;
+  conditions: Condition[];
+  setConditions: (c: Condition[]) => void;
   result: ValidationResult | null;
   onNext: () => void;
 }
 
-export default function SettingsStep({ cfg, setCfg, result, onNext }: Props) {
+export default function SettingsStep({ cfg, setCfg, conditions, setConditions, result, onNext }: Props) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [csvMsg, setCsvMsg] = useState<{ text: string; err?: boolean } | null>(null);
   const spec = SPEC[cfg.series];
   const f = result?.fields ?? {};
   const ioErr = result?.io ?? {};
@@ -23,8 +30,32 @@ export default function SettingsStep({ cfg, setCfg, result, onNext }: Props) {
     update({ io_list: cfg.io_list.map((r, idx) => (idx === i ? { ...r, ...patch } : r)) });
   const bool = (b: boolean) => (b ? "true" : "false");
 
+  const importCsv = async (file: File) => {
+    if (file.size > 1_000_000) return setCsvMsg({ text: "파일이 너무 커요. (1MB 이하)", err: true });
+    const { rows, warnings } = parseIoCsv(await file.text());
+    if (!rows.length) return setCsvMsg({ text: "가져올 행이 없어요. 열 순서는 디바이스, 이름, 종류, 설명이에요.", err: true });
+    const kept = cfg.io_list.filter((r) => r.device.trim() || r.name.trim());
+    update({ io_list: [...kept, ...rows] });
+    setCsvMsg({ text: `${rows.length}개 신호를 가져왔어요.${warnings.length ? " " + warnings.slice(0, 3).join(" ") : ""}` });
+  };
+
+  const loadTemplate = (p: { config: Partial<Config>; conditions: Condition[] }) => {
+    const base = initialConfig();
+    const c = { ...base, ...p.config, safety_ack: false } as Config;
+    if (!c.io_list?.length) c.io_list = base.io_list;
+    setCfg(c);
+    setConditions(p.conditions.length ? p.conditions.map((x) => ({ text: x.text, must_pass: x.must_pass })) : [{ text: "", must_pass: true }]);
+  };
+
   return (
     <form onSubmit={(e) => { e.preventDefault(); onNext(); }} noValidate>
+      <TemplatesCard
+        current={() => ({
+          config: { ...cfg, safety_ack: false },
+          conditions: conditions.filter((c) => c.text.trim()),
+        })}
+        onLoad={loadTemplate}
+      />
       <Card title="PLC 사양" desc="사용할 MELSEC 시리즈와 CPU, 프로그램 언어를 선택해요.">
         <div className="grid">
           <Field label="MELSEC 시리즈" required error={f.series}>
@@ -80,7 +111,17 @@ export default function SettingsStep({ cfg, setCfg, result, onNext }: Props) {
           ))}
         </div>
         {f.io_empty && <div className="banner err">{f.io_empty}</div>}
-        <button type="button" className="btn ghost" onClick={() => update({ io_list: [...cfg.io_list, emptyRow()] })}>＋ 신호 추가</button>
+        <div className="io-actions">
+          <button type="button" className="btn ghost" onClick={() => update({ io_list: [...cfg.io_list, emptyRow()] })}>＋ 신호 추가</button>
+          <button type="button" className="btn ghost" onClick={() => fileRef.current?.click()}>CSV 가져오기</button>
+          <button type="button" className="btn ghost" onClick={downloadCsvTemplate}>CSV 양식 받기</button>
+          <input
+            ref={fileRef} type="file" accept=".csv,text/csv" hidden aria-label="CSV 파일 선택"
+            onChange={(e) => { const f0 = e.target.files?.[0]; if (f0) importCsv(f0); e.target.value = ""; }}
+          />
+        </div>
+        <p className="hint">엑셀은 "다른 이름으로 저장 → CSV UTF-8"로 저장한 뒤 가져오세요. 열 순서: 디바이스, 이름, 종류, 설명. 기존 입력에 이어 붙어요.</p>
+        {csvMsg && <div className={"banner " + (csvMsg.err ? "err" : "ok")} role="status">{csvMsg.text}</div>}
       </Card>
 
       <Card title="제어 정보" desc="제어 대상과 안전 입력을 알려 주세요.">

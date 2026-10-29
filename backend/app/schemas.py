@@ -1,5 +1,5 @@
 """입력 JSON 구조. 의미 검증(호환성·점수·디바이스)은 validation.py에서 한다."""
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class EmergencyStop(BaseModel):
@@ -46,6 +46,26 @@ class Condition(BaseModel):
     id: str = ""
     text: str = ""
     must_pass: bool = True
+
+
+class TemplateInput(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    payload: dict
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("이름을 입력해 주세요.")
+        return v
+
+    @field_validator("payload")
+    @classmethod
+    def limit_size(cls, v: dict) -> dict:
+        if len(str(v)) > 200_000 or len(v.get("config", {}).get("io_list", [])) > 1000:
+            raise ValueError("템플릿이 너무 커요.")
+        return v
 
 
 class ProjectInput(BaseModel):

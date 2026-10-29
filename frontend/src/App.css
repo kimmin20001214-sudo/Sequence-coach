@@ -84,3 +84,15 @@ select:disabled { background: var(--bg); color: var(--muted); }
   .io-row { grid-template-columns: 1fr 1fr 36px; }
   .io-row input:nth-child(4), .io-row select { grid-column: span 2; }
 }
+
+.tpl-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.tpl-row select, .tpl-row input { flex: 1; min-width: 180px; }
+.tpl-row .btn { margin-top: 0; }
+.io-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.hint { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+.banner.ok { background: var(--primary-soft); color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent); }
+.guide { margin-bottom: 14px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.guide summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--primary); }
+.guide ul { margin: 10px 0 0; padding-left: 18px; font-size: 13px; color: var(--text); display: flex; flex-direction: column; gap: 6px; }
+.guide .chips { margin-top: 10px; }
+.guide .chip { text-align: left; }
