@@ -39,10 +39,10 @@ class StructuredRequirements(BaseModel):
 
 
 class LlmAnalysis(BaseModel):
-    """LLM이 돌려줘야 하는 JSON 모양."""
+    """분석 에이전트(Copilot Studio)가 API로 보내야 하는 JSON 모양."""
 
-    conditions: list[Condition] = []
-    timers: list[TimerSpec] = []
-    counters: list[CounterSpec] = []
-    assumptions: list[str] = []
-    questions: list[str] = []
+    conditions: list[Condition] = Field(default=[], max_length=200)
+    timers: list[TimerSpec] = Field(default=[], max_length=100)
+    counters: list[CounterSpec] = Field(default=[], max_length=100)
+    assumptions: list[str] = Field(default=[], max_length=100)
+    questions: list[str] = Field(default=[], max_length=50)

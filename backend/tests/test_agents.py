@@ -1,14 +1,20 @@
 import pytest
 
 from app import db
-from app.agents import llm, orchestrator
+from app.agents import orchestrator
 from conftest import valid_project
 
+KEY = {"X-API-Key": "test-key"}
 IO = [
     {"device": "X0", "name": "EMG", "kind": "푸시버튼 NC", "desc": ""},
     {"device": "X1", "name": "START", "kind": "푸시버튼 NO", "desc": ""},
     {"device": "Y0", "name": "MOTOR", "kind": "모터", "desc": ""},
 ]
+
+
+@pytest.fixture(autouse=True)
+def api_key(monkeypatch):
+    monkeypatch.setenv("AGENT_API_KEY", "test-key")
 
 
 def make_project(client, conditions=None):
@@ -20,89 +26,101 @@ def make_project(client, conditions=None):
     return r.json()["id"]
 
 
-@pytest.fixture(autouse=True)
-def reset_llm():
-    yield
-    llm.set_backend(None)
+def start(client, pid):
+    r = client.post(f"/agent/projects/{pid}/jobs", headers=KEY)
+    assert r.status_code == 201, r.text
+    return r.json()
 
 
-def fake(conditions, questions=None):
-    llm.set_backend(lambda prompt, schema: {"conditions": conditions, "questions": questions or []})
+def test_api_key_required(client, monkeypatch):
+    pid = make_project(client)
+    assert client.post(f"/agent/projects/{pid}/jobs").status_code == 401
+    assert client.post(f"/agent/projects/{pid}/jobs", headers={"X-API-Key": "wrong"}).status_code == 401
+    monkeypatch.delenv("AGENT_API_KEY")
+    assert client.post(f"/agent/projects/{pid}/jobs", headers=KEY).status_code == 503
 
 
-def test_analysis_structures_two_conditions_and_moves_to_designing(client):
-    fake([
+def test_start_job_returns_input_and_moves_to_analyzing(client):
+    pid = make_project(client)
+    body = start(client, pid)
+    assert body["job"]["state"] == "ANALYZING"
+    assert body["project"]["io_list"][0]["device"] == "X0"
+    assert body["project"]["conditions"][0]["text"] == "START 누르면 MOTOR ON"
+    assert client.post("/agent/projects/nope/jobs", headers=KEY).status_code == 404
+
+
+def test_two_conditions_structured_and_moves_to_designing(client):
+    pid = make_project(client, ["START 누르면 MOTOR ON", "EMG 누르면 모두 OFF"])
+    job = start(client, pid)["job"]["job_id"]
+    r = client.post(f"/agent/jobs/{job}/requirements", headers=KEY, json={"conditions": [
         {"type": "sequence", "text": "START 누르면 MOTOR ON", "signals": ["START", "MOTOR"]},
         {"type": "safety", "text": "EMG 누르면 모두 OFF", "signals": ["X0"]},
-    ])
-    pid = make_project(client, ["START 누르면 MOTOR ON", "EMG 누르면 모두 OFF"])
-    r = client.post(f"/projects/{pid}/run")
-    assert r.status_code == 202
+    ]})
+    assert r.status_code == 200, r.text
     body = r.json()
     assert body["state"] == "DESIGNING"
     assert [e["state"] for e in body["events"]] == ["INPUT_VALIDATED", "ANALYZING", "DESIGNING"]
-    conds = body["events"][-1]["data"]["conditions"]
-    assert [c["id"] for c in conds] == ["C1", "C2"]
+    assert [c["id"] for c in body["events"][-1]["data"]["conditions"]] == ["C1", "C2"]
     assert client.get(f"/projects/{pid}/status").json()["state"] == "DESIGNING"
     assert client.get(f"/projects/{pid}").json()["status"] == "DESIGNING"
 
 
 def test_emergency_stop_condition_added_automatically(client):
-    fake([{"type": "sequence", "text": "START 누르면 MOTOR ON", "signals": ["X1", "Y0"]}])
-    pid = make_project(client)
-    body = client.post(f"/projects/{pid}/run").json()
-    conds = body["events"][-1]["data"]["conditions"]
-    assert conds[-1]["type"] == "safety" and conds[-1]["must_pass"] and "X0" in conds[-1]["text"]
+    job = start(client, make_project(client))["job"]["job_id"]
+    body = client.post(f"/agent/jobs/{job}/requirements", headers=KEY, json={"conditions": [
+        {"type": "sequence", "text": "START 누르면 MOTOR ON", "signals": ["X1", "Y0"]}]}).json()
+    last = body["events"][-1]["data"]["conditions"][-1]
+    assert last["type"] == "safety" and last["must_pass"] and "X0" in last["text"]
 
 
-def test_unknown_signal_creates_question(client):
-    fake([{"type": "sequence", "text": "PUMP 켜기", "signals": ["PUMP"]}])
-    pid = make_project(client)
-    body = client.post(f"/projects/{pid}/run").json()
+def test_unknown_signal_and_agent_questions_need_input(client):
+    job = start(client, make_project(client))["job"]["job_id"]
+    body = client.post(f"/agent/jobs/{job}/requirements", headers=KEY, json={
+        "conditions": [{"type": "sequence", "text": "PUMP 켜기", "signals": ["PUMP"]}],
+        "questions": ["몇 초 동안 켜 둘까요?"]}).json()
     assert body["state"] == "NEEDS_INPUT"
-    assert any("PUMP" in q for q in body["questions"])
+    assert any("PUMP" in q for q in body["questions"]) and "몇 초 동안 켜 둘까요?" in body["questions"]
 
 
-def test_llm_questions_are_passed_through(client):
-    fake([{"type": "sequence", "text": "x", "signals": ["START"]}], questions=["몇 초 동안 켜 둘까요?"])
-    body = client.post(f"/projects/{make_project(client)}/run").json()
-    assert body["state"] == "NEEDS_INPUT" and "몇 초 동안 켜 둘까요?" in body["questions"]
+def test_bad_shape_rejected_and_wrong_state_conflict(client):
+    job = start(client, make_project(client))["job"]["job_id"]
+    bad = client.post(f"/agent/jobs/{job}/requirements", headers=KEY, json={"conditions": [{"type": "nope", "text": "x"}]})
+    assert bad.status_code == 422
+    ok = {"conditions": [{"type": "sequence", "text": "x", "signals": ["START"]}]}
+    assert client.post(f"/agent/jobs/{job}/requirements", headers=KEY, json=ok).status_code == 200
+    assert client.post(f"/agent/jobs/{job}/requirements", headers=KEY, json=ok).status_code == 409
+    assert client.post("/agent/jobs/nope/requirements", headers=KEY, json=ok).status_code == 404
 
 
-def test_bad_llm_output_retries_then_fails(client):
-    calls = []
-    llm.set_backend(lambda p, s: calls.append(1) or {"conditions": [{"type": "nope", "text": "x"}]})
-    pid = make_project(client)
-    r = client.post(f"/projects/{pid}/run")
-    assert r.status_code == 502 and len(calls) == 2
-    assert client.get(f"/projects/{pid}/status").json()["state"] == "FAILED"
-
-
-def test_missing_api_key_returns_503(client, monkeypatch):
-    monkeypatch.delenv("LLM_API_KEY", raising=False)
-    assert client.post(f"/projects/{make_project(client)}/run").status_code == 503
-
-
-def test_status_before_run_and_unknown_project(client):
+def test_status_before_start_and_unknown_project(client):
     pid = make_project(client)
     assert client.get(f"/projects/{pid}/status").json()["state"] == "INPUT_VALIDATED"
     assert client.get("/projects/nope/status").status_code == 404
-    assert client.post("/projects/nope/run").status_code == 404
 
 
-def test_escalates_after_max_iter(client):
+def test_verification_endpoint_and_escalation(client):
     job = db.create_job("p1", "VERIFYING", max_iter=2)
     states = []
     for _ in range(3):
-        job = orchestrator.report_verification(job["id"], passed=False)
-        states.append((job["state"], job["iteration"]))
-        if job["state"] == "FIXING":
+        r = client.post(f"/agent/jobs/{job['id']}/verification", headers=KEY, json={"passed": False})
+        assert r.status_code == 200
+        states.append((r.json()["state"], r.json()["iteration"]))
+        if r.json()["state"] == "FIXING":
             db.update_job(job["id"], "VERIFYING")
     assert states == [("FIXING", 1), ("FIXING", 2), ("ESCALATED", 2)]
+    assert client.post(f"/agent/jobs/{job['id']}/verification", headers=KEY, json={"passed": True}).status_code == 409
 
 
-def test_verification_pass_and_invalid_transition(client):
+def test_verification_pass(client):
     job = db.create_job("p1", "VERIFYING")
     assert orchestrator.report_verification(job["id"], passed=True)["state"] == "COMPLETED"
-    with pytest.raises(orchestrator.InvalidTransition):
-        orchestrator.report_verification(job["id"], passed=True)
+
+
+def test_agent_spec_is_openapi_30_with_tools_only(client):
+    spec = client.get("/agent-spec.json").json()
+    assert spec["openapi"].startswith("3.0")
+    assert set(spec["paths"]) == {"/agent/projects/{project_id}/jobs", "/agent/projects/{project_id}/status",
+                                  "/agent/jobs/{job_id}/requirements", "/agent/jobs/{job_id}/verification"}
+    ids = {op["operationId"] for p in spec["paths"].values() for op in p.values()}
+    assert ids == {"startJob", "getStatus", "submitRequirements", "reportVerification"}
+    assert "null" not in str(spec)

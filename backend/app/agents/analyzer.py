@@ -1,27 +1,9 @@
-"""분석 에이전트: 자연어 동작 조건 → 검증 가능한 구조(StructuredRequirements)."""
-import json
+"""분석 결과 마무리: Copilot Studio 분석 에이전트가 낸 요구사항을 백엔드가 점검·보완한다.
 
-from pydantic import ValidationError
-
+AI가 판단한 내용을 그대로 믿지 않고 코드로 다시 확인한다(I/O 목록에 없는 신호, 비상정지 조건).
+"""
 from ..schemas import ProjectInput
-from .llm import call_llm
 from .schemas import Condition, LlmAnalysis, StructuredRequirements
-
-MAX_TRIES = 2
-
-
-def _prompt(p: ProjectInput) -> str:
-    cfg = p.plc_config
-    return (
-        "당신은 MELSEC PLC 제어 요구사항 분석가입니다. 아래 동작 조건을 검증 가능한 조건 목록으로 나누세요.\n"
-        "- type은 sequence|interlock|timing|safety|alarm 중 하나\n"
-        "- 각 조건의 signals에는 그 조건이 쓰는 신호의 디바이스(예: X1) 또는 이름(예: START)만 적기\n"
-        "- 타이머/카운터가 필요하면 timers/counters에 적고, 추측한 내용은 assumptions에 적기\n"
-        "- 모호하거나 I/O 목록에 없는 신호가 필요하면 questions에 사용자에게 물을 질문을 적기\n"
-        f"PLC: {cfg.series} {cfg.cpu}, 제어 대상: {cfg.control_target}, 타이머 단위: {cfg.timer_unit_ms}ms\n"
-        f"I/O 목록: {json.dumps([r.model_dump() for r in p.io_list], ensure_ascii=False)}\n"
-        "동작 조건:\n" + "\n".join(f"- {c.text}" for c in p.conditions if c.text.strip())
-    )
 
 
 def _known(p: ProjectInput) -> set[str]:
@@ -33,23 +15,10 @@ def _known(p: ProjectInput) -> set[str]:
     return known
 
 
-def analyze(project: ProjectInput) -> StructuredRequirements:
-    schema = LlmAnalysis.model_json_schema()
-    prompt = _prompt(project)
-    last_err: Exception | None = None
-    for _ in range(MAX_TRIES):
-        try:
-            llm = LlmAnalysis.model_validate(call_llm(prompt, schema))
-            break
-        except ValidationError as e:
-            last_err = e
-            prompt += f"\n\n이전 출력이 형식에 맞지 않았어요. 다시 JSON Schema에 맞게 출력하세요: {e.errors()[:3]}"
-    else:
-        raise ValueError(f"분석 결과 형식이 올바르지 않아요: {last_err}")
-
-    conditions = [c.model_copy(update={"id": f"C{i + 1}"}) for i, c in enumerate(llm.conditions)]
-    assumptions = list(llm.assumptions)
-    questions = list(llm.questions)
+def finalize(project: ProjectInput, analysis: LlmAnalysis) -> StructuredRequirements:
+    conditions = [c.model_copy(update={"id": f"C{i + 1}"}) for i, c in enumerate(analysis.conditions)]
+    assumptions = list(analysis.assumptions)
+    questions = list(analysis.questions)
 
     known = _known(project)
     for c in conditions:
@@ -73,8 +42,8 @@ def analyze(project: ProjectInput) -> StructuredRequirements:
         plc_config=project.plc_config,
         io_list=project.io_list,
         conditions=conditions,
-        timers=llm.timers,
-        counters=llm.counters,
+        timers=analysis.timers,
+        counters=analysis.counters,
         assumptions=assumptions,
         questions=list(dict.fromkeys(questions)),
     )

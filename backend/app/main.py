@@ -2,13 +2,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
 from . import db
-from .agents import orchestrator
-from .agents.llm import LlmUnavailable
+from . import agent_api
 from .schemas import ProjectInput, TemplateInput
 from .spec import get_series, load_builtin_templates, load_instructions, load_spec
 from .validation import has_errors, validate_project
 
 app = FastAPI(title="MELSEC PLC 회로 설계 지원 API")
+app.include_router(agent_api.router)
 
 
 @app.get("/health")
@@ -82,37 +82,15 @@ def delete_template(template_id: str):
         raise HTTPException(404, "삭제할 수 있는 템플릿이 없어요. (기본 템플릿은 삭제할 수 없어요.)")
 
 
-@app.post("/projects/{project_id}/run", status_code=202)
-def run_project(project_id: str):
-    """분석 에이전트를 실행한다. 질문이 있으면 NEEDS_INPUT, 없으면 DESIGNING 상태가 된다."""
-    try:
-        job = orchestrator.start_analysis(project_id)
-    except KeyError:
-        raise HTTPException(404, "프로젝트를 찾을 수 없어요.")
-    except LlmUnavailable as e:
-        raise HTTPException(503, str(e))
-    except ValueError as e:
-        raise HTTPException(502, str(e))
-    return _status(job)
-
-
 @app.get("/projects/{project_id}/status")
-def project_status(project_id: str):
-    job = db.latest_job(project_id)
-    if not job:
-        if not db.get_project(project_id):
-            raise HTTPException(404, "프로젝트를 찾을 수 없어요.")
-        return {"project_id": project_id, "state": "INPUT_VALIDATED", "job_id": None, "iteration": 0, "max_iter": 5,
-                "events": [], "questions": []}
-    return _status(job)
+def status(project_id: str):
+    return agent_api.project_status(project_id)
 
 
-def _status(job: dict) -> dict:
-    events = db.list_events(job["id"])
-    questions = next((e["data"].get("questions", []) for e in reversed(events) if e["kind"] == "questions"), [])
-    return {"project_id": job["project_id"], "job_id": job["id"], "state": job["state"],
-            "iteration": job["iteration"], "max_iter": job["max_iter"], "updated_at": job["updated_at"],
-            "events": events, "questions": questions}
+@app.get("/agent-spec.json", include_in_schema=False)
+def agent_spec():
+    """Copilot Studio에서 도구(REST API)로 가져올 OpenAPI 문서."""
+    return agent_api.build_openapi()
 
 
 @app.get("/projects")

@@ -36,7 +36,8 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-## 에이전트 (구현 3)
-- POST /projects/{id}/run: 분석 에이전트 실행 → 질문이 있으면 NEEDS_INPUT, 없으면 DESIGNING`n- GET /projects/{id}/status: 현재 상태, 이벤트 기록, 질문 목록
-- 실제 LLM 호출에는 환경변수 LLM_API_KEY(필수), LLM_BASE_URL, LLM_MODEL이 필요해요. 입력한 I/O 목록과 조건이 외부 LLM 서비스로 전송돼요.
-- 테스트는 llm.set_backend()로 가짜 LLM을 써서 키 없이 돌아가요.
+## 에이전트 API (구현 3)
+에이전트의 AI 판단은 Copilot Studio에서 하고, 백엔드는 검증·상태 기록을 맡아요. 자세한 연결 방법은 [docs/copilot-studio.md](../docs/copilot-studio.md)를 보세요.
+- `/agent/*` API는 `X-API-Key` 헤더가 필요해요. 서버 환경변수 `AGENT_API_KEY`가 없으면 닫혀 있어요.
+- `GET /agent-spec.json`: Copilot Studio에 가져올 OpenAPI 문서
+- `GET /projects/{id}/status`: 화면용 상태 조회
