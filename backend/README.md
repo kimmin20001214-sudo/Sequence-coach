@@ -35,3 +35,8 @@ python -m venv .venv
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
 ```
+
+## 에이전트 (구현 3)
+- POST /projects/{id}/run: 분석 에이전트 실행 → 질문이 있으면 NEEDS_INPUT, 없으면 DESIGNING`n- GET /projects/{id}/status: 현재 상태, 이벤트 기록, 질문 목록
+- 실제 LLM 호출에는 환경변수 LLM_API_KEY(필수), LLM_BASE_URL, LLM_MODEL이 필요해요. 입력한 I/O 목록과 조건이 외부 LLM 서비스로 전송돼요.
+- 테스트는 llm.set_backend()로 가짜 LLM을 써서 키 없이 돌아가요.

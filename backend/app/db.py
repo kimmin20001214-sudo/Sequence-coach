@@ -22,7 +22,76 @@ def _connect() -> sqlite3.Connection:
         "CREATE TABLE IF NOT EXISTS templates ("
         "id TEXT PRIMARY KEY, name TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)"
     )
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS jobs ("
+        "id TEXT PRIMARY KEY, project_id TEXT NOT NULL, state TEXT NOT NULL, "
+        "iteration INTEGER NOT NULL, max_iter INTEGER NOT NULL, updated_at TEXT NOT NULL)"
+    )
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS job_events ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT NOT NULL, state TEXT NOT NULL, "
+        "kind TEXT NOT NULL, data TEXT NOT NULL, created_at TEXT NOT NULL)"
+    )
     return con
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def create_job(project_id: str, state: str, max_iter: int = 5) -> dict:
+    job = {"id": uuid.uuid4().hex[:12], "project_id": project_id, "state": state, "iteration": 0,
+           "max_iter": max_iter, "updated_at": _now()}
+    with _connect() as con:
+        con.execute("INSERT INTO jobs VALUES (:id, :project_id, :state, :iteration, :max_iter, :updated_at)", job)
+    return job
+
+
+def get_job(job_id: str) -> dict | None:
+    with _connect() as con:
+        r = con.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    return dict(r) if r else None
+
+
+def latest_job(project_id: str) -> dict | None:
+    with _connect() as con:
+        r = con.execute(
+            "SELECT * FROM jobs WHERE project_id = ? ORDER BY updated_at DESC, rowid DESC LIMIT 1", (project_id,)
+        ).fetchone()
+    return dict(r) if r else None
+
+
+def update_job(job_id: str, state: str, iteration: int | None = None) -> None:
+    with _connect() as con:
+        if iteration is None:
+            con.execute("UPDATE jobs SET state = ?, updated_at = ? WHERE id = ?", (state, _now(), job_id))
+        else:
+            con.execute(
+                "UPDATE jobs SET state = ?, iteration = ?, updated_at = ? WHERE id = ?",
+                (state, iteration, _now(), job_id),
+            )
+
+
+def add_event(job_id: str, state: str, kind: str, data: dict) -> None:
+    with _connect() as con:
+        con.execute(
+            "INSERT INTO job_events (job_id, state, kind, data, created_at) VALUES (?, ?, ?, ?, ?)",
+            (job_id, state, kind, json.dumps(data, ensure_ascii=False), _now()),
+        )
+
+
+def list_events(job_id: str) -> list[dict]:
+    with _connect() as con:
+        rows = con.execute("SELECT * FROM job_events WHERE job_id = ? ORDER BY id", (job_id,)).fetchall()
+    return [
+        {"state": r["state"], "kind": r["kind"], "data": json.loads(r["data"]), "created_at": r["created_at"]}
+        for r in rows
+    ]
+
+
+def update_project_status(project_id: str, status: str) -> None:
+    with _connect() as con:
+        con.execute("UPDATE projects SET status = ? WHERE id = ?", (status, project_id))
 
 
 def list_templates() -> list[dict]:
