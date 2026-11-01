@@ -1,0 +1,37 @@
+{
+  "name": "self_hold",
+  "requirements": {
+    "plc_config": {
+      "series": "Q", "cpu": "Q06HCPU", "language": "ladder", "software": "GX Works2",
+      "x_points": 32, "y_points": 32, "control_target": "컨베이어", "safety_ack": true,
+      "emergency_stop": {"used": false, "device": ""}, "project_name": "SELF_HOLD"
+    },
+    "io_list": [
+      {"device": "X1", "name": "START", "kind": "푸시버튼 NO", "desc": "시작 버튼"},
+      {"device": "X2", "name": "STOP", "kind": "푸시버튼 NC", "desc": "정지 버튼(평상시 ON)"},
+      {"device": "Y0", "name": "MOTOR", "kind": "모터", "desc": "컨베이어 모터"}
+    ],
+    "conditions": [
+      {"id": "C1", "type": "sequence", "text": "START를 누르면 MOTOR가 켜지고 손을 떼도 유지된다.", "must_pass": true, "signals": ["START", "MOTOR"]},
+      {"id": "C2", "type": "interlock", "text": "STOP을 누르면 MOTOR가 꺼진다.", "must_pass": true, "signals": ["STOP", "MOTOR"]}
+    ],
+    "timers": [], "counters": [], "assumptions": [], "questions": []
+  },
+  "ir": {
+    "version": 1,
+    "rungs": [
+      {
+        "id": "R1", "comment": "모터 자기유지", "covers": ["C1", "C2"],
+        "condition": {"type": "AND", "items": [
+          {"type": "OR", "items": [
+            {"type": "contact", "kind": "NO", "signal": "X1"},
+            {"type": "contact", "kind": "NO", "signal": "Y0"}
+          ]},
+          {"type": "contact", "kind": "NO", "signal": "X2"}
+        ]},
+        "outputs": [{"kind": "OUT", "target": "Y0"}]
+      }
+    ]
+  },
+  "verification": {"passed": true, "errors": [], "warnings": []}
+}

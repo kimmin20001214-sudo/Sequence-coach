@@ -1,0 +1,42 @@
+{
+  "name": "on_delay",
+  "requirements": {
+    "plc_config": {
+      "series": "Q", "cpu": "Q06HCPU", "language": "ladder", "software": "GX Works2",
+      "x_points": 32, "y_points": 32, "control_target": "컨베이어", "safety_ack": true,
+      "emergency_stop": {"used": false, "device": ""}, "timer_unit_ms": 100, "project_name": "ON_DELAY"
+    },
+    "io_list": [
+      {"device": "X1", "name": "START", "kind": "푸시버튼 NO", "desc": "시작 버튼"},
+      {"device": "Y0", "name": "LAMP", "kind": "램프", "desc": "경고 램프"},
+      {"device": "Y1", "name": "MOTOR", "kind": "모터", "desc": "컨베이어 모터"}
+    ],
+    "conditions": [
+      {"id": "C1", "type": "sequence", "text": "START를 누르면 LAMP가 켜진다.", "must_pass": true, "signals": ["START", "LAMP"]},
+      {"id": "C2", "type": "timing", "text": "LAMP가 켜진 뒤 3초 후에 MOTOR가 켜진다.", "must_pass": true, "signals": ["LAMP", "MOTOR"]}
+    ],
+    "timers": [{"name": "T0", "preset_ms": 3000, "purpose": "램프 후 모터 지연"}],
+    "counters": [], "assumptions": ["START를 떼면 램프와 모터가 꺼진다고 가정했어요."], "questions": []
+  },
+  "ir": {
+    "version": 1,
+    "rungs": [
+      {
+        "id": "R1", "comment": "램프 출력", "covers": ["C1"],
+        "condition": {"type": "contact", "kind": "NO", "signal": "X1"},
+        "outputs": [{"kind": "OUT", "target": "Y0"}]
+      },
+      {
+        "id": "R2", "comment": "3초 지연 타이머", "covers": ["C2"],
+        "condition": {"type": "contact", "kind": "NO", "signal": "Y0"},
+        "outputs": [{"kind": "TON", "target": "T0", "preset_ms": 3000}]
+      },
+      {
+        "id": "R3", "comment": "지연 후 모터", "covers": ["C2"],
+        "condition": {"type": "contact", "kind": "NO", "signal": "T0"},
+        "outputs": [{"kind": "OUT", "target": "Y1"}]
+      }
+    ]
+  },
+  "verification": {"passed": true, "errors": [], "warnings": []}
+}
