@@ -4,23 +4,12 @@ AI 판단(분석·설계·검증·수정)은 Copilot Studio 에이전트가 하�
 결과를 받아 규칙대로 상태를 넘긴다. DESIGNING 이후는 다음 이슈에서 채울 자리(stub)다.
 """
 from .. import db
+from ..contracts import JOB_TRANSITIONS as TRANSITIONS
 from ..schemas import ProjectInput
 from .analyzer import finalize
 from .schemas import LlmAnalysis
 
-TRANSITIONS: dict[str, set[str]] = {
-    "INPUT_VALIDATED": {"ANALYZING"},
-    "ANALYZING": {"DESIGNING", "NEEDS_INPUT", "FAILED"},
-    "NEEDS_INPUT": set(),
-    "DESIGNING": {"VERIFYING", "FAILED"},
-    "VERIFYING": {"COMPLETED", "FIXING", "ESCALATED"},
-    "FIXING": {"VERIFYING"},
-    "COMPLETED": {"GENERATING"},
-    "GENERATING": {"DELIVERED", "FAILED"},
-    "DELIVERED": set(),
-    "ESCALATED": set(),
-    "FAILED": set(),
-}
+ACTIVE_STATES = {"INPUT_VALIDATED", "ANALYZING", "DESIGNING", "VERIFYING", "FIXING", "COMPLETED", "GENERATING"}
 
 
 class InvalidTransition(RuntimeError):
@@ -45,6 +34,24 @@ def start_job(project_id: str, max_iter: int = 5) -> tuple[dict, dict]:
     db.add_event(job["id"], "INPUT_VALIDATED", "created", {})
     job = _move(job, "ANALYZING", "started")
     return job, stored
+
+
+def get_job_input(job_id: str) -> tuple[dict, dict]:
+    """작업과 그 프로젝트 입력(plc_config, io_list, conditions)을 돌려준다."""
+    job = db.get_job(job_id)
+    if not job:
+        raise KeyError(job_id)
+    return job, db.get_project(job["project_id"])
+
+
+def fail_job(job_id: str, reason: str) -> dict:
+    """에이전트 호출 실패 등으로 더 진행할 수 없을 때 FAILED로 기록한다. 이미 끝난 작업은 그대로 둔다."""
+    job = db.get_job(job_id)
+    if not job:
+        raise KeyError(job_id)
+    if "FAILED" not in TRANSITIONS[job["state"]]:
+        return job
+    return _move(job, "FAILED", "error", {"reason": reason})
 
 
 def submit_requirements(job_id: str, analysis: LlmAnalysis) -> dict:

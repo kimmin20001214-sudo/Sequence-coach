@@ -59,7 +59,7 @@ def _run(fn, *args):
 @router.post("/projects/{project_id}/jobs", operation_id="startJob", status_code=201,
              summary="작업 시작 (분석 단계로 이동)")
 def start_job(project_id: str):
-    """프로젝트의 작업을 새로 만들고 ANALYZING 상태로 넘겨요. 분석할 입력(plc_config, io_list, conditions)을 함께 돌려줘요."""
+    """직접 시작 방식(B 단독)용. 새 작업을 만들고 ANALYZING 상태로 넘겨요. 홈페이지 실행 버튼(A)으로 시작한 작업은 getJob을 쓰세요."""
     job, project = _run(orchestrator.start_job, project_id)
     return {"job": status_of(job), "project": project}
 
@@ -68,6 +68,13 @@ def start_job(project_id: str):
 def get_status(project_id: str):
     """가장 최근 작업의 상태, 단계별 기록, 사용자에게 물어볼 질문 목록을 돌려줘요."""
     return project_status(project_id)
+
+
+@router.get("/jobs/{job_id}", operation_id="getJob", summary="작업과 분석할 입력 조회")
+def get_job(job_id: str):
+    """백엔드가 시작한 작업(job_id)의 상태와 분석할 입력(plc_config, io_list, conditions)을 돌려줘요."""
+    job, project = _run(orchestrator.get_job_input, job_id)
+    return {"job": status_of(job), "project": project}
 
 
 @router.post("/jobs/{job_id}/requirements", operation_id="submitRequirements",

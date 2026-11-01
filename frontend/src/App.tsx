@@ -6,6 +6,7 @@ import { fetchMeta, saveProject, ApiError, type SavedProject } from "./api";
 import { validateConfig, hasErrors, type ValidationResult } from "./validate";
 import SettingsStep from "./SettingsStep";
 import ConditionsStep from "./ConditionsStep";
+import RunStep from "./RunStep";
 import { Card } from "./ui";
 import "./App.css";
 
@@ -130,9 +131,10 @@ function Wizard() {
           {step === 1 && <ConditionsStep conditions={conditions} setConditions={setConditions} error={condError || saveError} saving={saving} onBack={() => go(0)} onSave={save} />}
           {step === 2 && (
             <>
-              <Card title="저장 완료" desc={`서버에 저장했어요. (프로젝트 ID: ${saved?.id}) 다음 단계에서 에이전트가 이 정보를 사용해요.`}>
-                <pre className="json">{JSON.stringify(saved, null, 2)}</pre>
+              <Card title="저장 완료" desc={`서버에 저장했어요. (프로젝트 ID: ${saved?.id})`}>
+                <details><summary>저장된 내용 보기</summary><pre className="json">{JSON.stringify(saved, null, 2)}</pre></details>
               </Card>
+              {saved && <RunStep projectId={saved.id} />}
               <div className="actions"><button type="button" className="btn ghost" onClick={() => go(1)}>← 조건 수정</button><span /></div>
             </>
           )}

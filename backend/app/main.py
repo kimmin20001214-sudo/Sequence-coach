@@ -2,13 +2,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
 from . import db
-from . import agent_api
+from . import agent_api, run_api
 from .schemas import ProjectInput, TemplateInput
 from .spec import get_series, load_builtin_templates, load_instructions, load_spec
 from .validation import has_errors, validate_project
 
 app = FastAPI(title="MELSEC PLC 회로 설계 지원 API")
 app.include_router(agent_api.router)
+app.include_router(run_api.router)
 
 
 @app.get("/health")
