@@ -35,3 +35,9 @@ python -m venv .venv
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
 ```
+
+## 에이전트 API (구현 3)
+에이전트의 AI 판단은 Copilot Studio에서 하고, 백엔드는 검증·상태 기록을 맡아요. 자세한 연결 방법은 [docs/copilot-studio.md](../docs/copilot-studio.md)를 보세요.
+- `/agent/*` API는 `X-API-Key` 헤더가 필요해요. 서버 환경변수 `AGENT_API_KEY`가 없으면 닫혀 있어요.
+- `GET /agent-spec.json`: Copilot Studio에 가져올 OpenAPI 문서
+- `GET /projects/{id}/status`: 화면용 상태 조회

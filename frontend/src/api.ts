@@ -64,6 +64,49 @@ export interface SavedProject {
   [key: string]: unknown;
 }
 
+export interface JobEvent {
+  state: string;
+  kind: string;
+  data: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface JobStatus {
+  project_id: string;
+  job_id: string | null;
+  state: string;
+  iteration: number;
+  max_iter: number;
+  events: JobEvent[];
+  questions: string[];
+}
+
+export const fetchAgentMode = async (): Promise<string | null> => (await call("/agent-mode")).json().then((d) => d.mode);
+
+export interface Answer { question: string; answer: string }
+
+export async function runProject(id: string, answers: Answer[] = []): Promise<JobStatus> {
+  let r: Response;
+  try {
+    r = await fetch(`${BASE}/projects/${id}/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answers }),
+    });
+  } catch {
+    throw new ApiError("서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.");
+  }
+  if (r.status === 503 || r.status === 409) throw new ApiError((await r.json()).detail);
+  if (!r.ok) throw new ApiError(`실행을 시작하지 못했어요. (${r.status})`);
+  return r.json();
+}
+
+export const fetchStatus = async (id: string): Promise<JobStatus> => (await call(`/projects/${id}/status`)).json();
+
+export const fetchProject = async (id: string): Promise<SavedProject & {
+  plc_config: Partial<Config>; io_list: Config["io_list"]; conditions: { text: string; must_pass: boolean }[];
+}> => (await call(`/projects/${id}`)).json();
+
 export async function saveProject(body: object): Promise<SavedProject> {
   let r: Response;
   try {

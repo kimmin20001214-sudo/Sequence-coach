@@ -2,14 +2,16 @@ import { useEffect, useState } from "react";
 import {
   initialConfig, applyMeta, SAFETY_NOTICE, type Condition, type Config,
 } from "./spec";
-import { fetchMeta, saveProject, ApiError, type SavedProject } from "./api";
+import { fetchMeta, fetchProject, saveProject, ApiError, type SavedProject } from "./api";
 import { validateConfig, hasErrors, type ValidationResult } from "./validate";
 import SettingsStep from "./SettingsStep";
 import ConditionsStep from "./ConditionsStep";
+import RunStep from "./RunStep";
 import { Card } from "./ui";
 import "./App.css";
 
 const STEPS = ["기본 설정", "동작 조건", "완료"];
+const LAST_PROJECT = "plc.lastProject";
 
 export default function App() {
   const [metaState, setMetaState] = useState<"loading" | "ready" | string>("loading");
@@ -48,6 +50,20 @@ function Wizard() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // 새로고침해도 마지막으로 저장한 프로젝트와 분석 결과를 다시 보여 준다.
+  useEffect(() => {
+    const id = localStorage.getItem(LAST_PROJECT);
+    if (!id) return;
+    fetchProject(id)
+      .then((p) => {
+        setCfg({ ...initialConfig(), ...p.plc_config, io_list: p.io_list.length ? p.io_list : initialConfig().io_list } as Config);
+        setConditions(p.conditions.map((c) => ({ text: c.text, must_pass: c.must_pass })));
+        setSaved(p);
+        setStep(2);
+      })
+      .catch(() => localStorage.removeItem(LAST_PROJECT));
+  }, []);
+
   const next = () => {
     const r = validateConfig(cfg);
     setResult(r);
@@ -75,7 +91,9 @@ function Wizard() {
     setSaving(true);
     setSaveError("");
     try {
-      setSaved(await saveProject(out));
+      const p = await saveProject(out);
+      localStorage.setItem(LAST_PROJECT, p.id);
+      setSaved(p);
       go(2);
     } catch (e) {
       const err = e as ApiError;
@@ -130,9 +148,10 @@ function Wizard() {
           {step === 1 && <ConditionsStep conditions={conditions} setConditions={setConditions} error={condError || saveError} saving={saving} onBack={() => go(0)} onSave={save} />}
           {step === 2 && (
             <>
-              <Card title="저장 완료" desc={`서버에 저장했어요. (프로젝트 ID: ${saved?.id}) 다음 단계에서 에이전트가 이 정보를 사용해요.`}>
-                <pre className="json">{JSON.stringify(saved, null, 2)}</pre>
+              <Card title="저장 완료" desc={`서버에 저장했어요. (프로젝트 ID: ${saved?.id})`}>
+                <details><summary>저장된 내용 보기</summary><pre className="json">{JSON.stringify(saved, null, 2)}</pre></details>
               </Card>
+              {saved && <RunStep projectId={saved.id} />}
               <div className="actions"><button type="button" className="btn ghost" onClick={() => go(1)}>← 조건 수정</button><span /></div>
             </>
           )}

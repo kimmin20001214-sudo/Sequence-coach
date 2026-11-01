@@ -1,12 +1,16 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from . import db
+from . import agent_api, mcp_api, run_api
 from .schemas import ProjectInput, TemplateInput
 from .spec import get_series, load_builtin_templates, load_instructions, load_spec
 from .validation import has_errors, validate_project
 
 app = FastAPI(title="MELSEC PLC 회로 설계 지원 API")
+app.include_router(agent_api.router)
+app.include_router(run_api.router)
+app.include_router(mcp_api.router)
 
 
 @app.get("/health")
@@ -78,6 +82,19 @@ def create_template(t: TemplateInput):
 def delete_template(template_id: str):
     if not db.delete_template(template_id):
         raise HTTPException(404, "삭제할 수 있는 템플릿이 없어요. (기본 템플릿은 삭제할 수 없어요.)")
+
+
+@app.get("/projects/{project_id}/status")
+def status(project_id: str):
+    return agent_api.project_status(project_id)
+
+
+@app.get("/agent-spec.json", include_in_schema=False)
+def agent_spec(request: Request):
+    """Copilot Studio에서 도구(REST API)로 가져올 OpenAPI 문서. 접속한 공개 주소를 servers에 넣어요."""
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    return agent_api.build_openapi(f"{proto}://{host}" if host else None)
 
 
 @app.get("/projects")
