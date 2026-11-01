@@ -30,6 +30,11 @@ def test_no_agent_questions_after_user_answered():
     assert any("말만 바꾼 질문" in a for a in req.assumptions)
 
 
+def test_vague_question_not_duplicated_by_agent():
+    req = analyzer.finalize(project("START 누르면 잠시 후 MOTOR ON"), analysis(["C1에서 '잠시 후'는 몇 초인가요?"]))
+    assert len(req.questions) == 1
+
+
 def test_blocking_questions_come_before_agent_questions():
     req = analyzer.finalize(project("START 누르면 잠시 후 MOTOR ON"), analysis(["a", "b", "c", "d"]))
     assert "잠시" in req.questions[0]

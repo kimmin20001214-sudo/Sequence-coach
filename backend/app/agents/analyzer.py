@@ -2,6 +2,8 @@
 
 AI가 판단한 내용을 그대로 믿지 않고 코드로 다시 확인한다(I/O 목록에 없는 신호, 비상정지 조건).
 """
+import re
+
 from ..schemas import ProjectInput
 from .schemas import Condition, LlmAnalysis, StructuredRequirements
 
@@ -19,6 +21,12 @@ def _known(p: ProjectInput) -> set[str]:
     return known
 
 
+def _covered(question: str, agent_text: str) -> bool:
+    cid = question.split("의 '")[0].replace("조건 ", "").strip()
+    word = question.split("'")[1] if "'" in question else ""
+    return bool(word) and word in agent_text or bool(re.search(rf"\b{re.escape(cid)}\b", agent_text))
+
+
 def vague_questions(project: ProjectInput) -> list[str]:
     out = []
     for i, c in enumerate(project.conditions):
@@ -34,6 +42,9 @@ def finalize(project: ProjectInput, analysis: LlmAnalysis, answers: list[dict] |
     conditions = [c.model_copy(update={"id": f"C{i + 1}"}) for i, c in enumerate(analysis.conditions)]
     assumptions = list(analysis.assumptions) + [f"사용자 답변: {a['question']} → {a['answer']}" for a in answers]
     questions = list(dict.fromkeys(vague_questions(project)))
+    # 에이전트가 같은 모호한 표현을 이미 물었다면 백엔드의 기본 질문은 빼서 중복을 막는다.
+    agent_text = " ".join(analysis.questions)
+    questions = [q for q in questions if not _covered(q, agent_text)]
     known = _known(project)
     for c in conditions:
         missing = [s for s in c.signals if s.strip().upper() not in known]
