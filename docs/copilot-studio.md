@@ -30,7 +30,15 @@
 
 둘 다 없고 시연 모드도 아니면 "분석 시작" 버튼은 비활성이고 `/projects/{id}/run`은 503이에요.
 
-## 2. 도구(REST API) 추가
+## 2. 도구 추가
+
+### 방법 1: MCP (REST API 메뉴가 없을 때 추천)
+Copilot Studio → 에이전트 → **도구 → 도구 추가 → `+ 추가` → 모델 컨텍스트 프로토콜(MCP)**
+- 서버 URL: `https://<공개주소>/mcp`
+- 인증: **API 키**, 위치 **헤더**, 이름 `X-API-Key`, 값은 `AGENT_API_KEY`
+- 도구 5개(`getJob`, `submitRequirements`, `getStatus`, `reportVerification`, `startJob`)가 REST와 똑같이 생겨요. (구현: `app/mcp_api.py`)
+
+### 방법 2: REST API
 
 Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** → `agent-spec.json` 가져오기.
 - 인증: **API 키**, 위치 **헤더**, 이름 `X-API-Key`, 값은 `AGENT_API_KEY`
