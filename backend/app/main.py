@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from . import db
@@ -89,9 +89,11 @@ def status(project_id: str):
 
 
 @app.get("/agent-spec.json", include_in_schema=False)
-def agent_spec():
-    """Copilot Studio에서 도구(REST API)로 가져올 OpenAPI 문서."""
-    return agent_api.build_openapi()
+def agent_spec(request: Request):
+    """Copilot Studio에서 도구(REST API)로 가져올 OpenAPI 문서. 접속한 공개 주소를 servers에 넣어요."""
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    return agent_api.build_openapi(f"{proto}://{host}" if host else None)
 
 
 @app.get("/projects")

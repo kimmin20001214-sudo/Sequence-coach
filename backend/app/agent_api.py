@@ -92,7 +92,7 @@ def report_verification(job_id: str, result: Verification):
     return status_of(_run(orchestrator.report_verification, job_id, result.passed))
 
 
-def build_openapi() -> dict:
+def build_openapi(base_url: str | None = None) -> dict:
     """Copilot Studio에 가져올 수 있도록 /agent 경로만 담은 OpenAPI 3.0 문서."""
     spec = get_openapi(
         title="MELSEC PLC 설계 지원 - 에이전트 도구", version="1.0.0", openapi_version="3.0.3",
@@ -100,6 +100,8 @@ def build_openapi() -> dict:
     )
     spec["components"]["securitySchemes"] = {"apiKey": {"type": "apiKey", "in": "header", "name": "X-API-Key"}}
     spec["security"] = [{"apiKey": []}]
+    if base_url:
+        spec["servers"] = [{"url": base_url.rstrip("/")}]
     for path in spec["paths"].values():
         for op in path.values():
             op["parameters"] = [p for p in op.get("parameters", []) if p["name"].lower() != "x-api-key"]
