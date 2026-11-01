@@ -70,3 +70,19 @@ PR에 적힌 **확인 순서와 기대 결과**를 따라 직접 사용해 보�
 템플릿은 파일만 복사해요. 원본의 권한·보호 규칙은 복사되지 않고, 이후 원본 파일 변경도 자동 반영되지 않아요.
 
 </details>
+
+
+## 배포 (Render 무료 웹서비스)
+
+FastAPI 서버 1개가 화면(`frontend` 빌드 결과)과 API(`/api/*`)를 함께 제공합니다. 루트의 `Dockerfile`과 `render.yaml`(Blueprint)을 사용합니다.
+
+1. 이 저장소가 GitHub의 `main`에 반영되어 있어야 합니다.
+2. [Render](https://render.com)에 로그인 → **New → Blueprint** → 이 저장소를 연결하고 `render.yaml`을 선택합니다.
+3. **Apply**를 누르면 Docker 빌드(프론트 빌드 + 백엔드)가 시작됩니다. 처음 빌드는 몇 분 걸립니다.
+4. 완료되면 `https://<서비스이름>.onrender.com` 주소로 접속합니다. 상태 확인은 `/api/health` 입니다.
+
+주의할 점:
+- 무료 플랜은 약 15분 동안 접속이 없으면 **슬립**됩니다. 슬립 중 주소로 접속하면 서버가 **자동으로 다시 켜지며**, 첫 응답까지 약 30초~1분 걸릴 수 있습니다.
+- 무료 플랜의 디스크는 **영구 저장이 아닙니다.** SQLite(`data.sqlite3`)에 저장한 프로젝트·템플릿은 재배포나 슬립 후 재시작 시 사라질 수 있습니다. 보존이 필요하면 별도 DB(예: PostgreSQL)가 필요합니다.
+- 서버는 `PORT` 환경변수(Render가 지정)를 사용합니다. 로컬 개발(`start.bat`, vite 프록시)은 그대로 동작합니다.
+- 로컬에서 배포와 같은 방식으로 확인: `cd frontend; npm run build` 후 `cd ..\backend; .\.venv\Scripts\python.exe -m uvicorn app.server:server --port 8000` → http://localhost:8000/ 와 http://localhost:8000/api/health
