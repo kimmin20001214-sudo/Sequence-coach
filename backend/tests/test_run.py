@@ -104,3 +104,50 @@ def test_busy_job_blocks_second_run(client, monkeypatch):
     pid = make_project(client)
     db.create_job(pid, "ANALYZING")
     assert client.post(f"/projects/{pid}/run").status_code == 409
+
+
+def test_vague_condition_asks_then_answer_reanalyzes(client, monkeypatch):
+    monkeypatch.setenv("AGENT_DEMO", "1")
+    pid = make_project(client, ["START 누르면 잠시 후 MOTOR ON"])
+    s = client.post(f"/projects/{pid}/run").json()
+    s = client.get(f"/projects/{pid}/status").json()
+    assert s["state"] == "NEEDS_INPUT"
+    assert len(s["questions"]) == 1 and "잠시" in s["questions"][0]
+
+    answers = [{"question": s["questions"][0], "answer": "3초"}]
+    assert client.post(f"/projects/{pid}/run", json={"answers": answers}).status_code == 202
+    s2 = client.get(f"/projects/{pid}/status").json()
+    assert s2["state"] == "DESIGNING" and s2["job_id"] != s["job_id"]
+    req = next(e for e in s2["events"] if e["kind"] == "requirements")["data"]
+    assert any("3초" in a for a in req["assumptions"])
+    job = db.latest_job(pid)
+    assert client.get(f"/agent/jobs/{job['id']}", headers=KEY).json()["project"]["answers"] == answers
+
+
+def test_number_makes_condition_not_vague(client, monkeypatch):
+    monkeypatch.setenv("AGENT_DEMO", "1")
+    pid = make_project(client, ["START 누르면 잠시 후(3초) MOTOR ON"])
+    client.post(f"/projects/{pid}/run")
+    assert client.get(f"/projects/{pid}/status").json()["state"] == "DESIGNING"
+
+
+def test_agent_unknown_signal_question_then_answer(client, monkeypatch):
+    monkeypatch.setenv("COPILOT_DIRECTLINE_SECRET", "s")
+    pid = make_project(client)
+
+    def fake_http(method, url, token=None, body=None):
+        if url.endswith("/conversations"):
+            return {"conversationId": "c1", "token": "t1"}
+        if method == "POST":
+            job = db.latest_job(pid)
+            analysis = {"conditions": [{"type": "sequence", "text": "x", "signals": ["X9"]}]}
+            client.post(f"/agent/jobs/{job['id']}/requirements", headers=KEY, json=analysis)
+            return {}
+        return {"activities": []}
+
+    monkeypatch.setattr(runner, "_http", fake_http)
+    client.post(f"/projects/{pid}/run")
+    q = client.get(f"/projects/{pid}/status").json()
+    assert q["state"] == "NEEDS_INPUT" and "X9" in q["questions"][0]
+    client.post(f"/projects/{pid}/run", json={"answers": [{"question": q["questions"][0], "answer": "X1이에요"}]})
+    assert client.get(f"/projects/{pid}/status").json()["state"] == "DESIGNING"

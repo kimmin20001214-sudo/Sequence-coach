@@ -16,34 +16,47 @@ const STATE_LABEL: Record<string, string> = {
   FAILED: "실패",
 };
 const FINAL = new Set(["NEEDS_INPUT", "DESIGNING", "COMPLETED", "DELIVERED", "ESCALATED", "FAILED"]);
+const SHOWN = new Set(["created", "started", "requirements", "questions", "error", "verified", "escalated"]);
 
 export default function RunStep({ projectId }: { projectId: string }) {
   const [mode, setMode] = useState<string | null | undefined>(undefined);
   const [status, setStatus] = useState<JobStatus | null>(null);
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const timer = useRef<number | undefined>(undefined);
-
-  useEffect(() => {
-    fetchAgentMode().then(setMode).catch(() => setMode(null));
-    return () => window.clearTimeout(timer.current);
-  }, []);
 
   const poll = (id: string) => {
     fetchStatus(id)
       .then((s) => {
-        setStatus(s);
-        if (FINAL.has(s.state)) setRunning(false);
-        else timer.current = window.setTimeout(() => poll(id), 2000);
+        setStatus(s.job_id ? s : null);
+        if (s.job_id && !FINAL.has(s.state)) {
+          setRunning(true);
+          timer.current = window.setTimeout(() => poll(id), 2000);
+        } else {
+          setRunning(false);
+        }
       })
       .catch((e: Error) => { setError(e.message); setRunning(false); });
   };
 
-  const start = async () => {
+  useEffect(() => {
+    fetchAgentMode().then(setMode).catch(() => setMode(null));
+    poll(projectId);
+    return () => window.clearTimeout(timer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  const start = async (withAnswers = false) => {
     setError("");
+    const list = withAnswers
+      ? (status?.questions ?? []).map((q) => ({ question: q, answer: (answers[q] ?? "").trim() }))
+      : [];
+    if (list.some((a) => !a.answer)) return setError("모든 질문에 답해 주세요.");
     setRunning(true);
     try {
-      setStatus(await runProject(projectId));
+      setStatus(await runProject(projectId, list));
+      setAnswers({});
       poll(projectId);
     } catch (e) {
       setError((e as ApiError).message);
@@ -57,14 +70,14 @@ export default function RunStep({ projectId }: { projectId: string }) {
   const agentNotes = status?.events.filter((e) => e.kind === "agent_message") ?? [];
 
   return (
-    <Card title="에이전트에게 설계 요청" desc="AI 에이전트가 조건을 분석해요. 분석 결과는 아래에서 바로 확인할 수 있어요.">
+    <Card title="에이전트에게 설계 요청" desc="AI 에이전트가 조건을 분석해요. 새로고침해도 마지막 분석 결과를 다시 볼 수 있어요.">
       {mode === null && (
         <div className="banner err" role="status">에이전트가 아직 연결되지 않았어요. Copilot Studio 연결 후 실행할 수 있어요.</div>
       )}
       {mode === "demo" && (
         <div className="banner err" role="status">시연 모드예요. 실제 AI 분석이 아니라 화면 흐름만 확인해요.</div>
       )}
-      <button type="button" className="btn primary" disabled={!mode || running} onClick={start}>
+      <button type="button" className="btn primary" disabled={!mode || running} onClick={() => start()}>
         {running ? "분석 중…" : status ? "다시 실행" : "분석 시작"}
       </button>
       {error && <div className="banner err" role="alert">{error}</div>}
@@ -74,13 +87,19 @@ export default function RunStep({ projectId }: { projectId: string }) {
           {failReason && <div className="banner err" role="alert">{failReason}</div>}
           {status.state === "NEEDS_INPUT" && (
             <>
-              <p>아래 질문에 맞게 조건이나 I/O 목록을 고친 뒤 다시 실행해 주세요.</p>
-              <ul>{status.questions.map((q) => <li key={q}>{q}</li>)}</ul>
+              <p>아래 질문에 답하면 그 내용을 반영해 다시 분석해요.</p>
+              {status.questions.map((q) => (
+                <label key={q} className="field">
+                  <span className="field-label">{q}</span>
+                  <input value={answers[q] ?? ""} onChange={(e) => setAnswers({ ...answers, [q]: e.target.value })} maxLength={500} />
+                </label>
+              ))}
+              <button type="button" className="btn primary" disabled={running} onClick={() => start(true)}>답변 반영해 다시 분석</button>
             </>
           )}
           {agentNotes.map((e) => <p key={e.created_at + String(e.data.text)}>💬 {String(e.data.text)}</p>)}
           <ol>
-            {status.events.filter((e) => e.kind !== "agent_message").map((e, i) => (
+            {status.events.filter((e) => SHOWN.has(e.kind)).map((e, i) => (
               <li key={i}>{STATE_LABEL[e.state] ?? e.state}</li>
             ))}
           </ol>

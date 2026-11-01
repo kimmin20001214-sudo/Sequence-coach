@@ -25,23 +25,31 @@ def _move(job: dict, to: str, kind: str, data: dict | None = None, iteration: in
     return db.get_job(job["id"])
 
 
-def start_job(project_id: str, max_iter: int = 5) -> tuple[dict, dict]:
-    """작업을 만들고 ANALYZING으로 넘긴다. 분석 에이전트가 읽을 프로젝트 입력도 함께 돌려준다."""
+def start_job(project_id: str, max_iter: int = 5, answers: list[dict] | None = None) -> tuple[dict, dict]:
+    """작업을 만들고 ANALYZING으로 넘긴다. 분석 에이전트가 읽을 프로젝트 입력도 함께 돌려준다.
+
+    answers는 이전 질문에 대한 사용자 답변([{question, answer}])이며 새 작업에 기록돼 재분석에 쓰인다."""
     stored = db.get_project(project_id)
     if not stored:
         raise KeyError(project_id)
     job = db.create_job(project_id, "INPUT_VALIDATED", max_iter)
     db.add_event(job["id"], "INPUT_VALIDATED", "created", {})
+    if answers:
+        db.add_event(job["id"], "INPUT_VALIDATED", "answers", {"answers": answers})
     job = _move(job, "ANALYZING", "started")
     return job, stored
 
 
+def job_answers(job_id: str) -> list[dict]:
+    return next((e["data"]["answers"] for e in db.list_events(job_id) if e["kind"] == "answers"), [])
+
+
 def get_job_input(job_id: str) -> tuple[dict, dict]:
-    """작업과 그 프로젝트 입력(plc_config, io_list, conditions)을 돌려준다."""
+    """작업과 그 프로젝트 입력(plc_config, io_list, conditions, answers)을 돌려준다."""
     job = db.get_job(job_id)
     if not job:
         raise KeyError(job_id)
-    return job, db.get_project(job["project_id"])
+    return job, {**db.get_project(job["project_id"]), "answers": job_answers(job_id)}
 
 
 def fail_job(job_id: str, reason: str) -> dict:
@@ -62,7 +70,7 @@ def submit_requirements(job_id: str, analysis: LlmAnalysis) -> dict:
     if job["state"] != "ANALYZING":
         raise InvalidTransition(f"{job['state']} 상태에서는 분석 결과를 받을 수 없어요.")
     project = ProjectInput.model_validate(db.get_project(job["project_id"]))
-    req = finalize(project, analysis)
+    req = finalize(project, analysis, job_answers(job_id))
     if req.questions:
         return _move(job, "NEEDS_INPUT", "questions", req.model_dump())
     return _move(job, "DESIGNING", "requirements", req.model_dump())

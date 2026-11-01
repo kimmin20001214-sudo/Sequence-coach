@@ -83,10 +83,16 @@ export interface JobStatus {
 
 export const fetchAgentMode = async (): Promise<string | null> => (await call("/agent-mode")).json().then((d) => d.mode);
 
-export async function runProject(id: string): Promise<JobStatus> {
+export interface Answer { question: string; answer: string }
+
+export async function runProject(id: string, answers: Answer[] = []): Promise<JobStatus> {
   let r: Response;
   try {
-    r = await fetch(`${BASE}/projects/${id}/run`, { method: "POST" });
+    r = await fetch(`${BASE}/projects/${id}/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answers }),
+    });
   } catch {
     throw new ApiError("서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.");
   }
@@ -96,6 +102,10 @@ export async function runProject(id: string): Promise<JobStatus> {
 }
 
 export const fetchStatus = async (id: string): Promise<JobStatus> => (await call(`/projects/${id}/status`)).json();
+
+export const fetchProject = async (id: string): Promise<SavedProject & {
+  plc_config: Partial<Config>; io_list: Config["io_list"]; conditions: { text: string; must_pass: boolean }[];
+}> => (await call(`/projects/${id}`)).json();
 
 export async function saveProject(body: object): Promise<SavedProject> {
   let r: Response;
