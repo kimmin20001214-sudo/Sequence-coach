@@ -3,7 +3,7 @@
 코드를 잘 몰라도 괜찮아요. **할 일을 적고 → Copilot과 만들고 → 직접 확인하는 순서**로 시작해 보세요.
 이 저장소에는 협업 안내와 양식이 준비되어 있어요.
 
-> **개발을 시작하려면 [docs/team-guide.md](docs/team-guide.md)를 먼저 읽으세요.** `start-demo.bat`을 실행하면 키 없이 화면과 백엔드를 켤 수 있어요.
+> **개발을 시작하려면 [docs/start-easy.md](docs/start-easy.md)(쉬운 시작 가이드)를 먼저 읽으세요.** 자세한 약속은 [docs/team-guide.md](docs/team-guide.md)에 있어요. `start-demo.bat`을 실행하면 키 없이 화면과 백엔드를 켤 수 있어요.
 
 ## 1. 할 일을 하나 적어요
 
