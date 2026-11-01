@@ -23,6 +23,13 @@ def test_questions_are_capped_and_rest_become_assumptions():
     assert sum("질문을 줄이려고 생략" in a for a in req.assumptions) == 3
 
 
+def test_no_agent_questions_after_user_answered():
+    answers = [{"question": "질문0", "answer": "예"}]
+    req = analyzer.finalize(project(), analysis(["질문0", "말만 바꾼 질문"]), answers)
+    assert req.questions == []
+    assert any("말만 바꾼 질문" in a for a in req.assumptions)
+
+
 def test_blocking_questions_come_before_agent_questions():
     req = analyzer.finalize(project("START 누르면 잠시 후 MOTOR ON"), analysis(["a", "b", "c", "d"]))
     assert "잠시" in req.questions[0]

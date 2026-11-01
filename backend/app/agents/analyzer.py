@@ -53,6 +53,11 @@ def finalize(project: ProjectInput, analysis: LlmAnalysis, answers: list[dict] |
             assumptions.append("비상정지 조건은 입력 설정에 따라 자동으로 추가했어요.")
 
     # 반드시 필요한 질문(모호한 시간·없는 신호)을 먼저 두고, 사용자가 부담 없도록 최대 개수로 제한한다.
+    # 이미 답변한 뒤의 재분석에서는 에이전트가 말만 바꿔 되묻는 일이 많아, 에이전트 질문은 다시 하지 않는다.
+    if answers:
+        agent_qs = set(analysis.questions)
+        assumptions += [f"다시 묻지 않고 일반적인 방식으로 가정했어요: {q}" for q in agent_qs if q not in answered]
+        questions = [q for q in questions if q not in agent_qs]
     pending = [q for q in dict.fromkeys(questions) if q not in answered]
     kept, skipped = pending[:MAX_QUESTIONS], pending[MAX_QUESTIONS:]
     assumptions += [f"질문을 줄이려고 생략하고 일반적인 방식으로 가정했어요: {q}" for q in skipped]
