@@ -1,12 +1,14 @@
 """팀장: 전체 단계를 상태 머신으로 관리하고 결과를 jobs/job_events에 기록한다.
 
 AI 판단(분석·설계·검증·수정)은 Copilot Studio 에이전트가 하고, 이 모듈은 에이전트가 API로 보낸
-결과를 받아 규칙대로 상태를 넘긴다. DESIGNING 이후는 다음 이슈에서 채울 자리(stub)다.
+결과를 받아 규칙대로 상태를 넘긴다. 설계 초안은 안전 검토가 연결되기 전까지 DESIGNING에 둔다.
 """
 from .. import db
 from ..contracts import JOB_TRANSITIONS as TRANSITIONS
+from ..contracts import StructuredRequirements
 from ..schemas import ProjectInput
 from .analyzer import finalize
+from .designer import create_draft
 from .schemas import LlmAnalysis
 
 ACTIVE_STATES = {"INPUT_VALIDATED", "ANALYZING", "DESIGNING", "VERIFYING", "FIXING", "COMPLETED", "GENERATING"}
@@ -86,3 +88,29 @@ def report_verification(job_id: str, passed: bool) -> dict:
     if job["iteration"] >= job["max_iter"]:
         return _move(job, "ESCALATED", "escalated", {"max_iter": job["max_iter"]})
     return _move(job, "FIXING", "fix_requested", {"iteration": job["iteration"] + 1}, job["iteration"] + 1)
+
+
+def generate_design(job_id: str) -> dict:
+    """저장된 분석 결과만 사용한다. 초안은 기록하되 안전 검토를 대신하지 않는다."""
+    job = db.get_job(job_id)
+    if not job:
+        raise KeyError(job_id)
+    if job["state"] != "DESIGNING":
+        raise InvalidTransition(f"{job['state']} 상태에서는 설계 초안을 만들 수 없어요.")
+    events = db.list_events(job_id)
+    existing = next((e["data"] for e in events if e["kind"] == "design"), None)
+    if existing is not None:
+        return {"job": job, "design": existing}
+    requirements = next((e["data"] for e in reversed(events) if e["kind"] == "requirements"), None)
+    try:
+        if requirements is None:
+            raise ValueError("저장된 분석 결과가 없어요. 분석 단계부터 다시 시작해 주세요.")
+        req = StructuredRequirements.model_validate(requirements)
+        design = create_draft(req)
+    except ValueError as exc:
+        reason = str(exc)
+        db.add_event(job_id, job["state"], "design_error", {"reason": reason, "retryable": False})
+        return {"job": fail_job(job_id, reason), "error": reason}
+    design["requirements_event_index"] = max(i for i, e in enumerate(events) if e["kind"] == "requirements")
+    db.add_event(job_id, job["state"], "design", design)
+    return {"job": job, "design": design}

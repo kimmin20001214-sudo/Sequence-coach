@@ -121,7 +121,7 @@ def test_agent_spec_is_openapi_30_with_tools_only(client):
     assert spec["openapi"].startswith("3.0")
     assert set(spec["paths"]) == {"/agent/projects/{project_id}/jobs", "/agent/projects/{project_id}/status",
                                   "/agent/jobs/{job_id}", "/agent/jobs/{job_id}/requirements",
-                                  "/agent/jobs/{job_id}/verification"}
+                                  "/agent/jobs/{job_id}/verification", "/agent/jobs/{job_id}/design"}
     ids = {op["operationId"] for p in spec["paths"].values() for op in p.values()}
-    assert ids == {"startJob", "getStatus", "getJob", "submitRequirements", "reportVerification"}
+    assert ids == {"startJob", "getStatus", "getJob", "submitRequirements", "reportVerification", "generateDesign"}
     assert "null" not in str(spec)
