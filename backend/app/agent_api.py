@@ -85,6 +85,15 @@ def submit_requirements(job_id: str, analysis: LlmAnalysis):
     return status_of(_run(orchestrator.submit_requirements, job_id, analysis))
 
 
+@router.post("/jobs/{job_id}/design", operation_id="generateDesign",
+             summary="저장된 분석으로 자기유지 설계 초안 생성")
+def generate_design(job_id: str):
+    """저장된 분석으로 Q시리즈 자기유지 초안·사용 신호표·설명을 저장해요.
+    안전 검토 미수행이므로 DESIGNING에서 멈추며, 미지원 입력은 FAILED로 기록해요."""
+    result = _run(orchestrator.generate_design, job_id)
+    return {**result, "job": status_of(result["job"])}
+
+
 @router.post("/jobs/{job_id}/verification", operation_id="reportVerification",
              summary="검증 결과 보고")
 def report_verification(job_id: str, result: Verification):

@@ -62,7 +62,9 @@ def _state(job_id: str) -> str:
 def _message(project_id: str, job_id: str) -> str:
     return (
         f"[작업 시작] project_id={project_id} job_id={job_id}\n"
-        "getJob 도구로 이 작업의 입력을 읽어 분석하고, 결과를 submitRequirements 도구로 제출해 주세요."
+        "getJob 도구로 이 작업의 입력을 읽어 분석하고, 결과를 submitRequirements 도구로 제출해 주세요. "
+        "결과 state가 DESIGNING이면 회로 설계 에이전트에게 같은 job_id로 generateDesign을 호출하도록 요청하세요. "
+        "안전 검토·검증은 아직 연결하지 않았으므로 초안을 완료·안전 승인으로 표시하지 마세요."
     )
 
 

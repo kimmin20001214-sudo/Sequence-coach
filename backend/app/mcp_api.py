@@ -30,6 +30,9 @@ TOOLS = [
      "inputSchema": _obj({"job_id": _JOB, "analysis": LlmAnalysis.model_json_schema()}, ["job_id", "analysis"])},
     {"name": "getStatus", "description": "프로젝트의 가장 최근 작업 상태, 단계별 기록, 사용자에게 물어볼 질문 목록을 돌려줘요.",
      "inputSchema": _obj({"project_id": _ID}, ["project_id"])},
+    {"name": "generateDesign",
+     "description": "DESIGNING 작업의 저장된 분석으로 Q시리즈 자기유지 초안·신호표·설명을 만들어요. 안전 검토 전이라 DESIGNING에 멈추며, 미지원은 FAILED예요. 임의 IR을 제출하지 마세요.",
+     "inputSchema": _obj({"job_id": _JOB}, ["job_id"])},
     {"name": "reportVerification", "description": "검증 에이전트가 통과 여부를 보고해요. 실패가 최대 횟수를 넘으면 ESCALATED가 돼요.",
      "inputSchema": _obj({"job_id": _JOB, "passed": {"type": "boolean"}}, ["job_id", "passed"])},
     {"name": "startJob", "description": "에이전트가 직접 새 작업을 시작해요(홈페이지 실행 버튼으로 시작한 작업은 getJob을 쓰세요).",
@@ -44,6 +47,8 @@ def _call(name: str, a: dict):
         return agent_api.submit_requirements(a["job_id"], LlmAnalysis(**a["analysis"]))
     if name == "getStatus":
         return agent_api.get_status(a["project_id"])
+    if name == "generateDesign":
+        return agent_api.generate_design(a["job_id"])
     if name == "reportVerification":
         return agent_api.report_verification(a["job_id"], agent_api.Verification(passed=a["passed"]))
     if name == "startJob":
@@ -84,7 +89,8 @@ def handle(msg: dict) -> dict | None:
             return _tool_result(id_, str(e.detail), True)
         except (ValidationError, TypeError) as e:
             return _tool_result(id_, f"입력 형식이 올바르지 않아요: {e}", True)
-        return _tool_result(id_, json.dumps(data, ensure_ascii=False))
+        is_error = p.get("name") == "generateDesign" and "error" in data
+        return _tool_result(id_, json.dumps(data, ensure_ascii=False), is_error)
     return _error(id_, -32601, f"지원하지 않는 메서드: {method}")
 
 
