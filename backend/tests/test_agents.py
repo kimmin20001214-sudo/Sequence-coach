@@ -53,7 +53,7 @@ def test_two_conditions_structured_and_moves_to_designing(client):
     pid = make_project(client, ["START 누르면 MOTOR ON", "EMG 누르면 모두 OFF"])
     job = start(client, pid)["job"]["job_id"]
     r = client.post(f"/agent/jobs/{job}/requirements", headers=KEY, json={"conditions": [
-        {"type": "sequence", "text": "START 누르면 MOTOR ON", "signals": ["START", "MOTOR"]},
+        {"type": "sequence", "text": "START 누르면 MOTOR ON 유지", "signals": ["START", "MOTOR"]},
         {"type": "safety", "text": "EMG 누르면 모두 OFF", "signals": ["X0"]},
     ]})
     assert r.status_code == 200, r.text
