@@ -6,7 +6,7 @@ const STATE_LABEL: Record<string, string> = {
   INPUT_VALIDATED: "입력 확인됨",
   ANALYZING: "조건 분석 중",
   NEEDS_INPUT: "추가 정보 필요",
-  DESIGNING: "설계 완료 · 검증 단계는 아직 연결 전",
+  DESIGNING: "설계 에이전트 작업 중 · 완료되면 회로가 아래에 표시돼요",
   VERIFYING: "검증 중",
   FIXING: "수정 중",
   COMPLETED: "검증 통과",

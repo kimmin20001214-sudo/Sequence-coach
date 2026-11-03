@@ -28,7 +28,8 @@ def test_initialize_and_tools_list(client):
     assert init["capabilities"] == {"tools": {}} and init["protocolVersion"]
     tools = rpc(client, "tools/list").json()["result"]["tools"]
     assert {t["name"] for t in tools} == {
-        "getJob", "submitRequirements", "getStatus", "reportVerification", "startJob", "generateDesign",
+        "getJob", "submitRequirements", "getStatus", "reportVerification", "startJob",
+        "getDesignInput", "validateIr", "submitDesign",
     }
 
 

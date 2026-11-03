@@ -92,14 +92,29 @@ def report_verification(job_id: str, result: Verification):
     return status_of(_run(orchestrator.report_verification, job_id, result.passed))
 
 
-@router.post("/jobs/{job_id}/design", operation_id="generateDesign",
-             summary="명시적인 설계 지시로 회로 초안 저장")
-def generate_design(job_id: str):
-    """최신 requirements의 design.v1 지시를 읽어요. 성공은 DESIGNING 유지, 실패는 FAILED예요.
-    회로 안전 승인이나 다음 검증 단계로의 이동은 수행하지 않아요."""
-    result = _run(orchestrator.generate_design, job_id)
-    return {**status_of(result["job"]), "design": result["design"],
-            **({"reason": result["reason"]} if "reason" in result else {})}
+@router.get("/jobs/{job_id}/design-input", operation_id="getDesignInput", summary="설계할 분석 결과 조회")
+def get_design_input(job_id: str):
+    """DESIGNING 상태 작업의 조건·I/O·PLC 설정(분석 결과)을 돌려줘요."""
+    result = _run(orchestrator.get_design_input, job_id)
+    return {"job": status_of(result["job"]), "requirements": result["requirements"]}
+
+
+class IrBody(BaseModel):
+    ir: dict
+
+
+@router.post("/jobs/{job_id}/design-check", operation_id="validateIr", summary="회로(IR) 검사만 하기")
+def validate_ir_tool(job_id: str, body: IrBody):
+    """저장하지 않고 회로를 검사해요. 고칠 점(errors)이 있으면 고쳐서 다시 보내세요."""
+    design, problems = _run(orchestrator.check_design_ir, job_id, body.ir)
+    return {"ok": not problems, "errors": problems, "il": design.il if design else []}
+
+
+@router.post("/jobs/{job_id}/design", operation_id="submitDesign", summary="회로(IR) 제출")
+def submit_design(job_id: str, body: IrBody):
+    """회로를 검사해 통과하면 저장해요. 거부되면 errors를 돌려주며, 5번 거부되면 작업이 FAILED가 돼요."""
+    result = _run(orchestrator.submit_design, job_id, body.ir)
+    return {**status_of(result["job"]), "ok": result["ok"], "errors": result["errors"], "design": result["design"]}
 
 
 def build_openapi(base_url: str | None = None) -> dict:
