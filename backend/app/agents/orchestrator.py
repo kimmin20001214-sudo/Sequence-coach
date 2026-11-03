@@ -6,7 +6,7 @@ AI 판단(분석·설계·검증·수정)은 Copilot Studio 에이전트가 하�
 from .. import db
 from ..contracts import JOB_TRANSITIONS as TRANSITIONS
 from ..schemas import ProjectInput
-from .analyzer import finalize
+from .analyzer import MAX_QUESTIONS, finalize
 from .schemas import LlmAnalysis
 
 ACTIVE_STATES = {"INPUT_VALIDATED", "ANALYZING", "DESIGNING", "VERIFYING", "FIXING", "COMPLETED", "GENERATING"}
@@ -73,6 +73,17 @@ def submit_requirements(job_id: str, analysis: LlmAnalysis) -> dict:
     req = finalize(project, analysis, job_answers(job_id))
     if req.questions:
         return _move(job, "NEEDS_INPUT", "questions", req.model_dump())
+    if not job_answers(job_id):
+        # 설계 규칙이 확정하지 못하는 조건은 실패시키기 전에 한 번 사용자에게 묻는다
+        from ..plc.directives import with_auto_directives
+
+        _, skipped = with_auto_directives(req)
+        texts = {c.id: c.text for c in req.conditions if c.signals}
+        asks = [f"{cid} 조건 '{texts[cid]}'의 동작을 확정할 수 없어요: {why} 원하는 동작을 알려 주세요."
+                for cid, why in skipped.items() if cid in texts][:MAX_QUESTIONS]
+        if asks:
+            req = req.model_copy(update={"questions": asks})
+            return _move(job, "NEEDS_INPUT", "questions", req.model_dump())
     return _move(job, "DESIGNING", "requirements", req.model_dump())
 
 
