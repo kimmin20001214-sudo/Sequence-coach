@@ -105,6 +105,8 @@ def run_demo(job_id: str) -> None:
 def _run(job_id: str, chosen: str) -> None:
     try:
         (run_directline if chosen == "directline" else run_demo)(job_id)
+        if chosen == "directline" and _state(job_id) == "DESIGNING":
+            orchestrator.generate_design(job_id)  # 설계는 AI 없는 코드라 에이전트 호출 없이 바로 실행한다
     except Exception as e:  # 어떤 실패든 작업이 ANALYZING에 멈추지 않게 기록한다
         reason = f"에이전트 호출에 실패했어요. ({type(e).__name__})"
         if isinstance(e, urllib.error.HTTPError):
