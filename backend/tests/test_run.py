@@ -85,7 +85,9 @@ def test_directline_agent_submits_via_tool_api(client, monkeypatch):
     assert client.post(f"/projects/{pid}/run").status_code == 202
     job = db.latest_job(pid)
     assert f"job_id={job['id']}" in sent[0] and f"project_id={pid}" in sent[0]
-    assert job["state"] == "DESIGNING"
+    # 분석 뒤 자동 설계가 실행되며, 조건이 모호하면 이유와 함께 FAILED가 된다
+    assert job["state"] == "FAILED"
+    assert any(e["kind"] == "design_error" for e in db.list_events(job["id"]))
 
 
 def test_get_job_returns_input_for_agent(client, monkeypatch):
@@ -150,4 +152,4 @@ def test_agent_unknown_signal_question_then_answer(client, monkeypatch):
     q = client.get(f"/projects/{pid}/status").json()
     assert q["state"] == "NEEDS_INPUT" and "X9" in q["questions"][0]
     client.post(f"/projects/{pid}/run", json={"answers": [{"question": q["questions"][0], "answer": "X1이에요"}]})
-    assert client.get(f"/projects/{pid}/status").json()["state"] == "DESIGNING"
+    assert client.get(f"/projects/{pid}/status").json()["state"] == "FAILED"

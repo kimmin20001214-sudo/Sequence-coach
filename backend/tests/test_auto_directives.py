@@ -123,3 +123,25 @@ def test_pipeline_without_any_directive(client, name):
     assert result["job"]["state"] == "DESIGNING", result.get("reason")
     assert result["design"]["il"] == expected
     assert any(a.startswith(PREFIX) for a in result["design"]["assumptions"])
+
+
+def test_runner_designs_automatically_after_analysis(client, monkeypatch):
+    from app import db
+    from app.agents import orchestrator, runner
+    from app.agents.schemas import LlmAnalysis
+
+    req, expected = load_case("self_hold")
+    replace_directives(req, [])
+    project = db.create_project("자동 설계", {
+        "plc_config": req.plc_config.model_dump(),
+        "io_list": [row.model_dump() for row in req.io_list],
+        "conditions": [c.model_dump() for c in req.conditions],
+    })
+    job, _ = orchestrator.start_job(project["id"])
+    monkeypatch.setattr(runner, "run_directline", lambda job_id: orchestrator.submit_requirements(
+        job_id, LlmAnalysis(conditions=req.conditions)))
+    runner._run(job["id"], "directline")
+    events = db.list_events(job["id"])
+    design = next(e for e in events if e["kind"] == "design")
+    assert design["data"]["il"] == expected
+    assert db.get_job(job["id"])["state"] == "DESIGNING"
