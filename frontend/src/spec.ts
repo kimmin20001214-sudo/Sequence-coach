@@ -81,7 +81,7 @@ export interface Condition {
 export const emptyRow = (): IoRow => ({ device: "", name: "", kind: IO_KINDS[0] ?? "", desc: "" });
 
 export const initialConfig = (): Config => ({
-  series: "",
+  series: "Q",
   cpu: "",
   language: "",
   software: "",
