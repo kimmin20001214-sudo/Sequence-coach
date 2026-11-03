@@ -36,13 +36,13 @@
 Copilot Studio → 에이전트 → **도구 → 도구 추가 → `+ 추가` → 모델 컨텍스트 프로토콜(MCP)**
 - 서버 URL: `https://<공개주소>/mcp`
 - 인증: **API 키**, 위치 **헤더**, 이름 `X-API-Key`, 값은 `AGENT_API_KEY`
-- 도구 5개(`getJob`, `submitRequirements`, `getStatus`, `reportVerification`, `startJob`)가 REST와 똑같이 생겨요. (구현: `app/mcp_api.py`)
+- 도구 6개(`getJob`, `submitRequirements`, `generateDesign`, `getStatus`, `reportVerification`, `startJob`)가 REST와 똑같이 생겨요. (구현: `app/mcp_api.py`)
 
 ### 방법 2: REST API
 
 Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** → `agent-spec.json` 가져오기.
 - 인증: **API 키**, 위치 **헤더**, 이름 `X-API-Key`, 값은 `AGENT_API_KEY`
-- 가져오면 도구 5개가 생겨요: `getJob`, `submitRequirements`, `getStatus`, `reportVerification`, `startJob`
+- 가져오면 도구 6개가 생겨요: `getJob`, `submitRequirements`, `generateDesign`, `getStatus`, `reportVerification`, `startJob`
 - 홈페이지에서 시작하는 흐름(A)에서는 `getJob`과 `submitRequirements`를 써요. `startJob`은 에이전트가 직접 시작하는 방식(B 단독)용이에요.
 
 ## 3. 에이전트 만들기
@@ -54,7 +54,7 @@ Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** �
    - 백엔드는 "잠시", "적당히" 같은 모호한 표현이 숫자 없이 있으면 직접 질문을 추가해요.
 2. 분석 에이전트의 결과를 submitRequirements 도구로 제출합니다. job_id는 메시지에 있는 값을 그대로 씁니다.
 3. 결과 state가 NEEDS_INPUT이면 "추가 정보가 필요해요"라고 알립니다. 질문은 웹 화면이 보여 주므로 새 작업을 만들지 않습니다.
-4. state가 DESIGNING이면 "분석이 끝났고 설계 단계로 넘어갔다"고 알립니다. (설계·검증은 이후 단계에서 연결합니다.)
+4. state가 DESIGNING이면 분석 단계에서 사용자가 확인한 design.v1 지시를 assumptions에 함께 제출했는지 확인합니다. 지시가 없으면 동작을 추측하지 말고 사용자 확인을 받아 새 분석 작업에 반영합니다. 지시가 있으면 generateDesign(job_id)으로 초안을 저장합니다. 성공해도 DESIGNING이고 안전 승인이 아닙니다. FAILED이면 실패 이유를 알리고 검증 단계로 넘기지 않습니다.
 5. 진행 상황을 물으면 getStatus로 확인해 알려 줍니다.
 절대 회로가 안전하다고 단정하지 말고, 실제 설비 적용 전 전문가 확인이 필요하다고 안내합니다.
 상태 값(state)은 도구 결과를 그대로 전달하고 추측하지 않습니다.
@@ -81,7 +81,67 @@ Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** �
 - 설명 문장 없이 JSON만 출력합니다.
 ```
 
-팀장 에이전트의 **연결된 에이전트**로 분석 에이전트를 추가하고, 도구 4개는 팀장에게 연결해요.
+팀장 에이전트의 **연결된 에이전트**로 분석 에이전트를 추가하고, 흐름(A)에서 쓰는 `getJob`, `submitRequirements`, `generateDesign`, `getStatus` 도구를 팀장에게 연결해요. 실제 Studio 설정·게시·호출 검증은 담당자가 직접 해야 해요.
+
+## 설계 함수용 명시 입력 규약 (`design.v1`)
+
+`Condition.type`, `signals`, I/O의 `kind`만으로 자기유지인지 순간출력인지, 정지 극성·인터록 방향·타이머 연결을 확정할 수 없어요.
+**기존 분석 지침만으로 만든 결과는 그대로 설계할 수 없어요.** 팀장이 아래 기계 입력 규약을 사용자에게 확인한 뒤
+분석 결과의 `assumptions`에 추가하고 `submitRequirements`로 제출해야 해요. 기존 작업의 분석 결과를 고치는 도구는 이번에 추가하지 않았어요.
+공용 `contracts.py` 필드는 그대로지만, 이는 설계 단계의 새 의미 규약이에요. 일반 가정문·조건 문장을 명령으로 해석하거나 자동 기본값을 적용하지 않아요.
+
+`assumptions`의 각 문자열은 `design.v1:`로 시작하고 **조건 하나당 JSON 객체 하나**를 담아요.
+다음은 자기유지 예제 문장에 근거한 **시험용 값**이며, 사용자 설비 동작을 승인한 값이 아니에요.
+
+```json
+{
+  "assumptions": [
+    "design.v1:{\"condition_id\":\"C1\",\"mode\":\"self_hold\",\"inputs\":[{\"signal\":\"START\",\"active\":\"on\"}],\"join\":\"all\",\"outputs\":[\"MOTOR\"]}",
+    "design.v1:{\"condition_id\":\"C2\",\"mode\":\"block\",\"inputs\":[{\"signal\":\"STOP\",\"active\":\"off\"}],\"join\":\"all\",\"outputs\":[\"MOTOR\"]}"
+  ]
+}
+```
+
+| 항목 | 정확한 의미 |
+| --- | --- |
+| `condition_id` | 비어 있지 않고 중복 없는 기존 조건 ID. 모든 조건에 지시가 필요해요(`must_pass:false`도 무시하지 않아요). |
+| `inputs` | `signal`은 등록 I/O 이름 또는 X/Y 주소, `active`는 원시 입력값이 `on`/`off`일 때 참이라는 뜻이에요. 극성은 반드시 명시해요. |
+| `join` | `all`은 모든 입력이 참(직렬), `any`는 하나라도 참(병렬)이에요. |
+| `outputs` | 실제 구동·차단할 등록 Y 출력 목록. 신호 종류는 모터·램프·솔레노이드만 지원해요. |
+| `timer` / `counter` | `TimerSpec.name` / `CounterSpec.name` 하나와 명시적으로 연결해요. 이름은 실제 할당 주소가 아니에요. |
+
+| 조건 type / mode | 필요한 JSON 항목과 동작 |
+| --- | --- |
+| `sequence` / `direct` | `condition_id, mode, inputs, join, outputs`. 조건이 참인 동안 OUT, 거짓이면 OFF. |
+| `sequence` / `self_hold` | 위 항목. 시작 조건과 출력 피드백을 병렬로 연결해요. 여러 출력은 M 하나로 함께 유지하고 같은 정지·인터록을 적용해야 해요. 정지·차단 조건은 별도 `block` 지시로 명시해요. |
+| `interlock` / `block` | 위 항목. `inputs`와 `join`이 참이면 `outputs`를 차단해요. 출력마다 지시의 반대 논리를 직렬로 넣어요. 예: 평상시 ON인 NC STOP의 `active:off` → 허용 접점 NO. FWD ON 시 REV 차단은 `inputs:[FWD/on], outputs:[REV]`로 방향을 명시해요. |
+| `timing` / `on_delay` | 위 항목 + `timer`. 입력 조건이 참이면 TON, 완료 접점으로 출력해요. 입력·인터록·비상정지는 타이머 렁과 최종 출력 렁 모두에 적용해요. 시간은 100ms 배수 K1~K32767만 지원해요. |
+| `sequence` / `count` | 위 항목 + `counter, reset:"none"`. CTU 완료 접점으로 출력해요. 리셋하지 않는 누적 초안만 지원하며 실제 PLC 카운트·보존 동작은 미검증이에요. |
+| `safety` / `emergency_stop` | **`condition_id, mode`만** 써요. `cfg.emergency_stop.used`가 참이어야 하고, 이 조건의 signals는 설정된 비상정지 X 하나여야 해요. I/O kind는 `푸시버튼 NC`(평상시 ON). 래더 NO로 모든 구동 렁에 직렬 적용해요. |
+
+필수 항목 누락·추가 항목·중복 JSON 키·중복 조건·등록되지 않은 신호·signals 불일치·미연결/중복 타이머·순환 출력 참조·구동하지 않는 출력의 인터록은
+조건 번호가 있는 `DesignError`가 돼요. 같은 렁에서 함께 구동하는 출력은 정지·인터록 지시가 같아야 하며 다르면 조건을 나눠야 해요.
+입력 X는 푸시버튼 NO/NC·센서·리미트스위치만 지원해요. 출력 Y를 조건 접점으로 쓰려면 해당 출력을 만드는 조건도 있어야 해요.
+각 출력은 한 구동 조건만 가져야 해요. 자기유지 피드백 외의 출력 참조 순환은 지원하지 않아요.
+Q 래더·호환 CPU·GX Works2/GX Developer·자동 모드만 지원해요. ST, 보존/경보/추가 모듈/다중 운전 모드, 리셋 카운터, 일반 자연어 설계는 미지원이에요.
+
+내부 주소는 `cfg.device_rule.M/T/C`에서 시작해요. 기준 데이터의 Q `internal_limits`가 있으면 **끝값 미포함** 상한으로 사용해요.
+현재 `plc_spec.json`에는 상한이 없어서 `design.py`의 **매뉴얼 미확인 임시값** M8192/T2048/C1024를 사용하고 결과 `limitations`에 밝혀요.
+내부 M/T/C를 실제 I/O 표인 것처럼 꾸미지 않아요. CPU 점수 또한 `verified:false`이며 실제 범위를 보증하지 않아요.
+
+설계 함수는 AI를 호출하지 않고 `validate_ir` → `to_il`로 검사해 END를 포함한 IL을 반환해요.
+REST는 `POST /agent/jobs/{job_id}/design`(통합 서버에서는 `/api/agent/jobs/{job_id}/design`),
+MCP는 `generateDesign`에 `job_id` 문자열 하나만 보내요. 기존 `X-API-Key` 인증을 그대로 사용해요.
+성공 응답은 기존 상태 정보 + `design`(IR, 실제 사용 I/O, 조건별 설명, 가정·한계, IL)이에요.
+`design` 이벤트가 이미 있으면 재생성하지 않아요. 성공해도 **DESIGNING 유지**이며 다음 단계 호출·안전 승인은 하지 않아요.
+설계나 저장된 계약 형식이 잘못되면 `design_error` 이유를 남기고 기존 `fail_job`으로 FAILED 처리해요.
+REST의 설계 실패는 HTTP 200 안에 `state:FAILED, design:null, reason`이므로 상태를 반드시 확인해요.
+MCP는 같은 내용을 JSON 텍스트로 반환하고 `isError:true`로 표시해요. 없는 작업은 404, 다른 상태에서 호출하면 409예요.
+
+`backend/tests/fixtures/design_cases.json`은 기존 예제 3개의 입력에 지시를 덧붙이는 시험 데이터예요.
+`estop_interlock.json`의 기존 문장 C2는 FWD→REV 차단인데 기존 고정 IR은 반대 방향만 반영했어요.
+새 시험은 기존 파일을 수정하지 않고 X3(역방향 시작), C4(역방향 순간 구동), C5(STOP으로 두 출력 정지)를 **시험용으로** 추가해
+REV를 실제 구동하는 렁에서 C2를 차단하는지 검사해요. 기존 `expected_il.json`을 정답으로 복제하지 않아요.
 
 ## 4. 시험
 
@@ -94,7 +154,7 @@ Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** �
 
 | 이슈 | 이어 붙일 곳 | 입력 → 출력 (계약: `app/contracts.py`) |
 |---|---|---|
-| #41 설계 | `DESIGNING` 상태에서 호출 | `StructuredRequirements` → `Ir`. 끝나면 `VERIFYING`으로 |
+| #41 설계 | `DESIGNING`에서 `generateDesign` 호출 | 명시 지시가 있는 `StructuredRequirements` → 초안 저장. 상태는 `DESIGNING` 유지. `VERIFYING` 연결은 이번 범위 밖 |
 | #42 검증 | `VERIFYING` 상태에서 호출 | `Ir` → `VerificationResult`. 결과는 `reportVerification`/`orchestrator.report_verification`으로 |
 | #43 수정 | `FIXING` 상태 | `VerificationResult.errors` → 고친 `Ir` |
 | #44 파일 생성 | `COMPLETED → GENERATING → DELIVERED` | `Ir` → GX Works 파일 |

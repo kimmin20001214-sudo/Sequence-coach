@@ -1,0 +1,38 @@
+{
+  "_comment": "기존 requirements에 추가하는 시험 전용 명시 지시. 사용자 설비의 확정 동작이 아니다.",
+  "self_hold": {
+    "directives": [
+      {"condition_id": "C1", "mode": "self_hold", "inputs": [{"signal": "START", "active": "on"}], "join": "all", "outputs": ["MOTOR"]},
+      {"condition_id": "C2", "mode": "block", "inputs": [{"signal": "STOP", "active": "off"}], "join": "all", "outputs": ["MOTOR"]}
+    ],
+    "extra_io": [],
+    "extra_conditions": [],
+    "expected_il": ["LD X1", "OR Y0", "AND X2", "OUT Y0", "END"]
+  },
+  "on_delay": {
+    "directives": [
+      {"condition_id": "C1", "mode": "direct", "inputs": [{"signal": "START", "active": "on"}], "join": "all", "outputs": ["LAMP"]},
+      {"condition_id": "C2", "mode": "on_delay", "inputs": [{"signal": "LAMP", "active": "on"}], "join": "all", "outputs": ["MOTOR"], "timer": "T0"}
+    ],
+    "extra_io": [],
+    "extra_conditions": [],
+    "expected_il": ["LD X1", "OUT Y0", "LD Y0", "OUT T0 K30", "LD T0", "OUT Y1", "END"]
+  },
+  "estop_interlock": {
+    "directives": [
+      {"condition_id": "C1", "mode": "self_hold", "inputs": [{"signal": "START", "active": "on"}], "join": "all", "outputs": ["MOTOR_FWD"]},
+      {"condition_id": "C2", "mode": "block", "inputs": [{"signal": "MOTOR_FWD", "active": "on"}], "join": "all", "outputs": ["MOTOR_REV"]},
+      {"condition_id": "C3", "mode": "emergency_stop"},
+      {"condition_id": "C4", "mode": "direct", "inputs": [{"signal": "REV_START", "active": "on"}], "join": "all", "outputs": ["MOTOR_REV"]},
+      {"condition_id": "C5", "mode": "block", "inputs": [{"signal": "STOP", "active": "off"}], "join": "all", "outputs": ["MOTOR_FWD", "MOTOR_REV"]}
+    ],
+    "extra_io": [
+      {"device": "X3", "name": "REV_START", "kind": "푸시버튼 NO", "desc": "시험용 역방향 시작"}
+    ],
+    "extra_conditions": [
+      {"id": "C4", "type": "sequence", "text": "시험용 REV_START를 누르는 동안 MOTOR_REV가 켜진다.", "signals": ["REV_START", "MOTOR_REV"], "must_pass": true},
+      {"id": "C5", "type": "interlock", "text": "시험용 STOP을 누르면 정방향과 역방향 출력이 모두 꺼진다.", "signals": ["STOP", "MOTOR_FWD", "MOTOR_REV"], "must_pass": true}
+    ],
+    "expected_il": ["LD X1", "OR Y0", "AND X2", "AND X0", "OUT Y0", "LD X3", "ANI Y0", "AND X2", "AND X0", "OUT Y1", "END"]
+  }
+}
