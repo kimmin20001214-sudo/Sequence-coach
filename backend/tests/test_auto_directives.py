@@ -145,3 +145,20 @@ def test_runner_designs_automatically_after_analysis(client, monkeypatch):
     design = next(e for e in events if e["kind"] == "design")
     assert design["data"]["il"] == expected
     assert db.get_job(job["id"])["state"] == "DESIGNING"
+
+
+def test_agent_style_split_conditions_still_design():
+    # 분석 에이전트가 신호를 주소+이름으로 중복 기재하고 자기유지 하나를 여러 조건으로 쪼갠 실제 형태
+    req, _ = load_case("self_hold")
+    replace_directives(req, [])
+    sig = ["X1", "START", "Y0", "MOTOR"]
+    req.conditions = [
+        Condition(id="C1", type="sequence", text="START(X1) 버튼을 누르면 MOTOR(Y0)가 ON된다.", must_pass=True, signals=sig),
+        Condition(id="C2", type="sequence", text="START(X1) 버튼에서 손을 떼도 MOTOR(Y0)는 자기유지로 ON 상태를 유지한다.", must_pass=True, signals=sig),
+        Condition(id="C3", type="sequence", text="STOP(X2) 버튼을 누르면 MOTOR(Y0)가 OFF되고 자기유지가 해제된다.", must_pass=True,
+                  signals=["X2", "STOP", "Y0", "MOTOR"]),
+    ]
+    req.assumptions = ["자기유지 회로(START OR MOTOR, AND NOT STOP)로 구현한다."]
+    req, skipped = with_auto_directives(req)
+    assert skipped == {}
+    assert design_circuit(req).il[-1] == "END"
