@@ -86,3 +86,38 @@ def report_verification(job_id: str, passed: bool) -> dict:
     if job["iteration"] >= job["max_iter"]:
         return _move(job, "ESCALATED", "escalated", {"max_iter": job["max_iter"]})
     return _move(job, "FIXING", "fix_requested", {"iteration": job["iteration"] + 1}, job["iteration"] + 1)
+
+
+def generate_design(job_id: str) -> dict:
+    """최신 분석 결과로 초안을 한 번 저장한다. 성공해도 DESIGNING 상태를 유지한다."""
+    from pydantic import ValidationError
+
+    from ..contracts import StructuredRequirements
+    from ..plc.design import DesignError, DesignResult, design_circuit
+
+    job = db.get_job(job_id)
+    if not job:
+        raise KeyError(job_id)
+    if job["state"] != "DESIGNING":
+        raise InvalidTransition(f"{job['state']} 상태에서는 설계 초안을 만들 수 없어요.")
+    events = db.list_events(job_id)
+    try:
+        stored = next((event for event in reversed(events) if event["kind"] == "design"), None)
+        if stored is not None:
+            design = DesignResult.model_validate(stored["data"])
+            return {"job": job, "design": design.model_dump()}
+        requirements = next((event for event in reversed(events) if event["kind"] == "requirements"), None)
+        if requirements is None:
+            raise DesignError("조건 ID 미확인: 저장된 분석 결과(requirements)가 없어요.")
+        req = StructuredRequirements.model_validate(requirements["data"])
+        design = design_circuit(req)
+    except (DesignError, ValidationError) as exc:
+        reason = str(exc) if isinstance(exc, DesignError) else (
+            "조건 ID 미확인: 저장된 분석·설계 결과의 계약 형식이 잘못됐어요: "
+            + "; ".join(".".join(map(str, issue["loc"])) + " " + issue["msg"] for issue in exc.errors())
+        )
+        db.add_event(job_id, "DESIGNING", "design_error", {"reason": reason})
+        return {"job": fail_job(job_id, reason), "design": None, "reason": reason}
+    data = design.model_dump()
+    db.add_event(job_id, "DESIGNING", "design", data)
+    return {"job": job, "design": data}

@@ -92,6 +92,16 @@ def report_verification(job_id: str, result: Verification):
     return status_of(_run(orchestrator.report_verification, job_id, result.passed))
 
 
+@router.post("/jobs/{job_id}/design", operation_id="generateDesign",
+             summary="명시적인 설계 지시로 회로 초안 저장")
+def generate_design(job_id: str):
+    """최신 requirements의 design.v1 지시를 읽어요. 성공은 DESIGNING 유지, 실패는 FAILED예요.
+    회로 안전 승인이나 다음 검증 단계로의 이동은 수행하지 않아요."""
+    result = _run(orchestrator.generate_design, job_id)
+    return {**status_of(result["job"]), "design": result["design"],
+            **({"reason": result["reason"]} if "reason" in result else {})}
+
+
 def build_openapi(base_url: str | None = None) -> dict:
     """Copilot Studio에 가져올 수 있도록 /agent 경로만 담은 OpenAPI 3.0 문서."""
     spec = get_openapi(
