@@ -85,9 +85,10 @@ def test_directline_agent_submits_via_tool_api(client, monkeypatch):
     assert client.post(f"/projects/{pid}/run").status_code == 202
     job = db.latest_job(pid)
     assert f"job_id={job['id']}" in sent[0] and f"project_id={pid}" in sent[0]
-    # 분석 뒤 자동 설계가 실행되며, 조건이 모호하면 이유와 함께 FAILED가 된다
-    assert job["state"] == "FAILED"
-    assert any(e["kind"] == "design_error" for e in db.list_events(job["id"]))
+    # 모호한 조건(유지/누르는 동안 불명)은 설계 전에 사용자에게 먼저 묻는다
+    assert job["state"] == "NEEDS_INPUT"
+    q = next(e for e in db.list_events(job["id"]) if e["kind"] == "questions")
+    assert "C1" in q["data"]["questions"][0] and "유지" in q["data"]["questions"][0]
 
 
 def test_get_job_returns_input_for_agent(client, monkeypatch):
