@@ -94,6 +94,7 @@ def generate_design(job_id: str) -> dict:
 
     from ..contracts import StructuredRequirements
     from ..plc.design import DesignError, DesignResult, design_circuit
+    from ..plc.directives import with_auto_directives
 
     job = db.get_job(job_id)
     if not job:
@@ -110,7 +111,14 @@ def generate_design(job_id: str) -> dict:
         if requirements is None:
             raise DesignError("조건 ID 미확인: 저장된 분석 결과(requirements)가 없어요.")
         req = StructuredRequirements.model_validate(requirements["data"])
-        design = design_circuit(req)
+        req, skipped = with_auto_directives(req)
+        try:
+            design = design_circuit(req)
+        except DesignError as exc:
+            if skipped:
+                hint = "; ".join(f"{cid}: {why}" for cid, why in skipped.items())
+                raise DesignError(f"{exc} (자동 지시 생략 이유 - {hint})") from exc
+            raise
     except (DesignError, ValidationError) as exc:
         reason = str(exc) if isinstance(exc, DesignError) else (
             "조건 ID 미확인: 저장된 분석·설계 결과의 계약 형식이 잘못됐어요: "

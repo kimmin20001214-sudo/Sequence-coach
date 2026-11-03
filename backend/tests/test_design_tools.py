@@ -114,6 +114,7 @@ def test_rest_auth_success_failure_conflict_not_found(client):
     assert client.post(path, headers=KEY).json()["design"] == body["design"]
     job_id, req = ready_job(client)
     req.assumptions = []
+    req.conditions[0].text = "START를 누르면 MOTOR가 켜진다."
     db.add_event(job_id, "DESIGNING", "requirements", req.model_dump())
     failed = client.post(f"/agent/jobs/{job_id}/design", headers=KEY)
     assert failed.status_code == 200
