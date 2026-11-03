@@ -13,6 +13,7 @@ from .design import PREFIX
 _HOLD = re.compile(r"유지|계속\s*켜|자기\s*유지|hold", re.I)
 _WHILE = re.compile(r"동안|누르고\s*있|눌려\s*있")
 _STOP = re.compile(r"꺼|끄|정지|멈|차단|해제|OFF", re.I)
+_START = re.compile(r"켜|시작|기동|ON(?!/?OFF)|가동", re.I)
 _PREVENT = re.compile(r"않|못|금지|막|차단")
 _ANY = re.compile(r"또는|혹은|하나라도|중\s*하나|\bOR\b", re.I)
 _ALL = re.compile(r"그리고|모두|동시|함께|\bAND\b", re.I)
@@ -62,6 +63,13 @@ def _released_off(req: StructuredRequirements, xs: list[IoRow]) -> bool:
     )
 
 
+def _hold_stated(req: StructuredRequirements, xs: list[IoRow], ys: list[IoRow]) -> bool:
+    """같은 분석 결과의 가정이나 다른 조건이 같은 입력·출력에 대해 자기유지라고 밝혔는지 본다."""
+    names = [r.name.upper() for r in xs + ys] + [r.device.upper() for r in xs + ys]
+    sentences = [a for a in req.assumptions if not a.startswith(PREFIX)] + [c.text for c in req.conditions]
+    return any(re.search(r"자기\s*유지", s) and any(n in s.upper() for n in names) for s in sentences)
+
+
 def _one(req: StructuredRequirements, cond, lookup: dict[str, IoRow], timing_count: int) -> dict | str:
     """지시문 dict를 돌려주거나, 만들지 못한 이유(str)를 돌려준다."""
     text = cond.text
@@ -80,6 +88,7 @@ def _one(req: StructuredRequirements, cond, lookup: dict[str, IoRow], timing_cou
         if row is None:
             return f"{signal} 신호가 I/O 목록에 없어요."
         rows.append(row)
+    rows = list({r.device.strip().upper(): r for r in rows}.values())
     xs = [r for r in rows if r.device.strip().upper().startswith("X")]
     ys = [r for r in rows if r.device.strip().upper().startswith("Y")]
     if len(xs) + len(ys) != len(rows) or not ys:
@@ -98,11 +107,13 @@ def _one(req: StructuredRequirements, cond, lookup: dict[str, IoRow], timing_cou
         join = _join(text, len(xs))
         if join is None:
             return "입력이 여럿인데 '또는/그리고' 같은 연결 단서가 없어요."
+        if _STOP.search(text) and not _START.search(text):
+            return base("block", xs, ys, join)
         if len(req.counters) == 1 and (_COUNT.search(text) or req.counters[0].name in text):
             result = base("count", xs, ys, join)
             result.update(counter=req.counters[0].name, reset="none")
             return result
-        if _HOLD.search(text):
+        if _HOLD.search(text) or _hold_stated(req, xs, ys):
             return base("self_hold", xs, ys, join)
         if _WHILE.search(text) or not any(r.kind in _PUSH for r in xs) or _released_off(req, xs):
             return base("direct", xs, ys, join)
@@ -158,14 +169,36 @@ def with_auto_directives(req: StructuredRequirements) -> tuple[StructuredRequire
     timing_count = sum(1 for c in req.conditions if c.type == "timing")
     added: list[str] = []
     skipped: dict[str, str] = {}
+    first_seen: dict[str, str] = {}
+    merged: dict[str, str] = {}
     for cond in req.conditions:
         if cond.id in existing:
             continue
         result = _one(req, cond, lookup, timing_count)
         if isinstance(result, str):
             skipped[cond.id] = result
-        else:
-            added.append(PREFIX + json.dumps(result, ensure_ascii=False))
+            continue
+        key = json.dumps({k: v for k, v in result.items() if k != "condition_id"}, sort_keys=True, ensure_ascii=False)
+        if key in first_seen and result["mode"] != "emergency_stop":
+            merged[cond.id] = first_seen[key]
+            continue
+        first_seen[key] = cond.id
+        added.append(PREFIX + json.dumps(result, ensure_ascii=False))
     copy = req.model_copy(deep=True)
+    copy.conditions = [c for c in copy.conditions if c.id not in merged]
+    blocks = {json.loads(a[len(PREFIX):])["condition_id"] for a in added if '"mode": "block"' in a}
+    for c in copy.conditions:
+        if c.id in blocks:
+            c.type = "interlock"
+    copy.assumptions.extend(f"{cid} 조건은 {first} 조건과 같은 동작이라 하나의 회로로 합쳤어요." for cid, first in merged.items())
+    for cond in copy.conditions:
+        seen, kept = set(), []
+        for signal in cond.signals:
+            row = lookup.get(signal.strip().upper())
+            key = row.device.strip().upper() if row else signal
+            if key not in seen:
+                seen.add(key)
+                kept.append(signal)
+        cond.signals = kept
     copy.assumptions.extend(added)
     return copy, skipped
