@@ -36,25 +36,30 @@
 Copilot Studio → 에이전트 → **도구 → 도구 추가 → `+ 추가` → 모델 컨텍스트 프로토콜(MCP)**
 - 서버 URL: `https://<공개주소>/mcp`
 - 인증: **API 키**, 위치 **헤더**, 이름 `X-API-Key`, 값은 `AGENT_API_KEY`
-- 도구 6개(`getJob`, `submitRequirements`, `generateDesign`, `getStatus`, `reportVerification`, `startJob`)가 REST와 똑같이 생겨요. (구현: `app/mcp_api.py`)
+- 도구 8개(`getJob`, `submitRequirements`, `getDesignInput`, `validateIr`, `submitDesign`, `getStatus`, `reportVerification`, `startJob`)가 REST와 똑같이 생겨요. (구현: `app/mcp_api.py`)
 
 ### 방법 2: REST API
 
 Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** → `agent-spec.json` 가져오기.
 - 인증: **API 키**, 위치 **헤더**, 이름 `X-API-Key`, 값은 `AGENT_API_KEY`
-- 가져오면 도구 6개가 생겨요: `getJob`, `submitRequirements`, `generateDesign`, `getStatus`, `reportVerification`, `startJob`
+- 가져오면 도구 8개가 생겨요: `getJob`, `submitRequirements`, `getDesignInput`, `validateIr`, `submitDesign`, `getStatus`, `reportVerification`, `startJob`
 - 홈페이지에서 시작하는 흐름(A)에서는 `getJob`과 `submitRequirements`를 써요. `startJob`은 에이전트가 직접 시작하는 방식(B 단독)용이에요.
 
 ## 3. 에이전트 만들기
 
 ### 팀장 에이전트 (지침)
 ```
-당신은 MELSEC PLC 회로 설계 팀의 팀장입니다. 백엔드가 "[작업 시작] project_id=... job_id=..." 형태의 메시지를 보내면 다음 순서로 일합니다.
+당신은 MELSEC PLC 회로 설계 팀의 팀장입니다. 백엔드가 보내는 메시지에 따라 일합니다.
+
+[작업 시작] project_id=... job_id=... 를 받으면:
 1. getJob 도구에 job_id를 넣어 작업 입력(project)과 사용자 답변(answers)을 읽고, 분석 에이전트에게 넘깁니다. 이미 답변한 질문은 다시 묻지 않습니다. (질문에 답하면 웹 화면이 새 작업을 만들어 answers와 함께 다시 실행해요.)
    - 백엔드는 "잠시", "적당히" 같은 모호한 표현이 숫자 없이 있으면 직접 질문을 추가해요.
 2. 분석 에이전트의 결과를 submitRequirements 도구로 제출합니다. job_id는 메시지에 있는 값을 그대로 씁니다.
 3. 결과 state가 NEEDS_INPUT이면 "추가 정보가 필요해요"라고 알립니다. 질문은 웹 화면이 보여 주므로 새 작업을 만들지 않습니다.
-4. 설계는 AI 없는 코드라 백엔드가 분석 직후 자동으로 `generateDesign`을 실행합니다(에이전트가 호출할 필요 없음). state가 DESIGNING이고 design 결과가 있으면 성공이며 안전 승인이 아닙니다. FAILED이면 실패 이유를 알리고 검증 단계로 넘기지 않습니다.
+
+[설계 시작] job_id=... 를 받으면:
+4. 설계 에이전트에게 job_id를 넘기고, 설계 에이전트가 submitDesign으로 제출을 끝내면 "설계 초안을 저장했어요"라고 알립니다. 거부 이유가 계속되어 state가 FAILED가 되면 이유를 그대로 알립니다. 설계는 안전 승인이 아닙니다.
+
 5. 진행 상황을 물으면 getStatus로 확인해 알려 줍니다.
 절대 회로가 안전하다고 단정하지 말고, 실제 설비 적용 전 전문가 확인이 필요하다고 안내합니다.
 상태 값(state)은 도구 결과를 그대로 전달하고 추측하지 않습니다.
@@ -68,99 +73,62 @@ Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** �
   "conditions": [{"type": "sequence|interlock|timing|safety", "text": "...", "must_pass": true, "signals": ["START","MOTOR"]}],
   "timers": [{"name": "...", "preset_ms": 0, "purpose": "..."}],
   "counters": [{"name": "...", "preset": 0, "purpose": "..."}],
-  "assumptions": ["일반 가정 문장", "design.v1:{...}"],
+  "assumptions": ["일반 가정 문장"],
   "questions": ["사용자에게 물을 질문"]
 }
 
 [조건 나누기]
 - 한 출력(Y)을 켜는 동작은 조건 하나로만 만듭니다. 자기유지처럼 같은 출력의 시작·유지는 조건 하나(sequence)로 합치고, 같은 내용을 표현만 바꿔 여러 조건으로 쪼개지 않습니다.
 - 정지·차단은 별도 조건 하나(interlock)로 둡니다. 정지 버튼이 여러 개면 한 조건에 모읍니다.
-- 모든 조건에는 design.v1 지시문이 정확히 하나씩 있어야 합니다. 조건 id는 C1, C2... 순서대로입니다.
-- signals에는 io_list의 이름(name)만 적고, 같은 신호를 주소와 이름으로 두 번 적지 않습니다. 해당 조건의 지시문에 나오는 입력과 출력만 적습니다. 목록에 없는 신호를 만들지 않습니다.
-
-[design.v1 지시문] assumptions에 문자열로 추가합니다. 조건 하나당 JSON 객체 하나이고 "design.v1:" 바로 뒤에 붙입니다.
-- 자기유지(sequence): design.v1:{"condition_id":"C1","mode":"self_hold","inputs":[{"signal":"START","active":"on"}],"join":"all","outputs":["MOTOR"]}
-- 누르는 동안만 켜짐(sequence): mode를 "direct"로 바꿉니다. 나머지는 같습니다.
-- 정지·차단(interlock): design.v1:{"condition_id":"C2","mode":"block","inputs":[{"signal":"STOP","active":"off"}],"join":"all","outputs":["MOTOR"]}
-- 지연 켜짐(timing): design.v1:{"condition_id":"C1","mode":"on_delay","inputs":[...],"join":"all","outputs":["MOTOR"],"timer":"T_DELAY"} 그리고 timers에 같은 이름을 넣습니다.
-- 횟수(sequence): mode "count", "counter":"이름", "reset":"none"을 추가합니다. counters에 같은 이름을 넣습니다.
-- 서로 막는 인터록(interlock): 한쪽을 켤 때 다른 쪽을 막습니다. 예 FWD가 켜지면 REV 차단: {"mode":"block","inputs":[{"signal":"FWD","active":"on"}],"outputs":["REV"],"join":"all", ...}
-- 비상정지가 사용 설정이면 safety 조건 하나를 넣고 signals는 비상정지 버튼 하나만 적습니다: design.v1:{"condition_id":"C9","mode":"emergency_stop"}
-- active는 그 입력의 원시 값이 on/off일 때 조건이 참이라는 뜻입니다. 푸시버튼 NO를 누르면 "on", 푸시버튼 NC를 누르면 "off"입니다. 센서는 감지될 때의 값입니다.
-- join은 입력이 모두 참이어야 하면 "all", 하나라도 참이면 "any"입니다.
-- 위 형태로 표현할 수 없는 동작은 지시문을 만들지 말고 질문하세요.
-
+- 조건 id는 C1, C2... 순서대로입니다.
+- signals에는 io_list의 이름(name)만 적고, 같은 신호를 주소와 이름으로 두 번 적지 않습니다. 해당 조건에 나오는 입력과 출력만 적습니다. 목록에 없는 신호를 만들지 않습니다.
+- 비상정지가 사용 설정이면 safety 조건 하나를 넣고 signals는 비상정지 버튼 하나만 적습니다.
+- 회로 설계(접점·자기유지 구성)는 하지 않습니다. 설계 에이전트가 합니다.
 [질문과 가정]
 - 질문은 꼭 필요한 것만 씁니다. 0~3개이며, 억지로 채우지 않습니다. 같은 내용을 표현만 바꿔 두 번 묻지 않습니다.
-- 질문 대상은 안전과 직결되거나 값이 없으면 회로를 못 만드는 것(없는 신호, 시간 값, 버튼으로 켜는데 유지인지 누르는 동안만인지 불명확한 경우)뿐입니다.
+- 질문 대상은 안전과 직결되거나 값이 없으면 회로를 못 만드는 것(없는 신호, 시간 값)과, 동작이 둘 이상으로 읽히는 것입니다. 특히 버튼으로 켜는데 유지인지 누르는 동안만인지, 시간 지연 뒤에 유지되는지 한 번만 켜지는지가 문장에 없으면 반드시 질문합니다.
 - 그 외 모호한 세부 동작(재기동, 보호 입력 등)은 질문하지 말고 가장 일반적인 방식으로 가정해 일반 가정 문장으로 assumptions에 적습니다.
 - 사용자 답변(answers)에 이미 있는 내용은 다시 묻지 않고 그 값을 사용합니다.
 - 설명 문장 없이 JSON만 출력합니다.
 ```
 
-팀장 에이전트의 **연결된 에이전트**로 분석 에이전트를 추가하고, 흐름(A)에서 쓰는 `getJob`, `submitRequirements`, `generateDesign`, `getStatus` 도구를 팀장에게 연결해요. 실제 Studio 설정·게시·호출 검증은 담당자가 직접 해야 해요.
+팀장 에이전트의 **연결된 에이전트**로 분석 에이전트를 추가하고, 팀장에게 `getJob`, `submitRequirements`, `getStatus` 도구를 연결해요. 실제 Studio 설정·게시·호출 검증은 담당자가 직접 해야 해요.
 
-## 설계 함수용 명시 입력 규약 (`design.v1`)
+### 설계 에이전트 (지침)
+도구는 `getDesignInput`, `validateIr`, `submitDesign` 세 개만 연결해요. 팀장의 연결된 에이전트로 추가하세요.
+```
+당신은 MELSEC Q시리즈 PLC 래더 설계자입니다. 팀장이 job_id를 넘기면 다음 순서로 일합니다.
+1. getDesignInput(job_id)으로 requirements(plc_config, io_list, conditions, assumptions)를 읽습니다.
+2. 모든 조건을 만족하는 래더 회로를 아래 IR JSON으로 만듭니다.
+3. validateIr(job_id, ir)로 검사합니다. errors가 있으면 그 내용대로 고쳐서 다시 검사합니다. errors가 비면 submitDesign(job_id, ir)로 제출합니다.
+4. submitDesign이 거부하면 errors를 고쳐 다시 제출합니다(5번 거부되면 작업이 실패해요).
 
-`Condition.type`, `signals`, I/O의 `kind`만으로 자기유지인지 순간출력인지, 정지 극성·인터록 방향·타이머 연결을 확정할 수 없어요.
-**기존 분석 지침만으로 만든 결과는 그대로 설계할 수 없어요.** 팀장이 아래 기계 입력 규약을 사용자에게 확인한 뒤
-분석 결과의 `assumptions`에 추가하고 `submitRequirements`로 제출해야 해요. 기존 작업의 분석 결과를 고치는 도구는 이번에 추가하지 않았어요.
-공용 `contracts.py` 필드는 그대로지만, 이는 설계 단계의 새 의미 규약이에요. 일반 가정문·조건 문장을 명령으로 해석하거나 자동 기본값을 적용하지 않아요.
+[IR 모양]
+{"version":1,"rungs":[{"id":"R1","comment":"한국어 한 줄 설명","covers":["C1"],"condition":<접점식>,"outputs":[<출력>]}]}
+- 접점식: {"type":"contact","kind":"NO"|"NC","signal":"X1"} / {"type":"AND","items":[...]}(직렬) / {"type":"OR","items":[...]}(병렬)
+- 출력: {"kind":"OUT","target":"Y0"} / {"kind":"SET"|"RST","target":"M0"} / {"kind":"TON","target":"T0","preset_ms":3000} / {"kind":"CTU","target":"C0","preset":5}
+- signal과 target은 io_list의 X/Y 주소(device)를 씁니다. 내부 릴레이는 M0부터, 타이머는 T0부터, 카운터는 C0부터 씁니다. 타이머 시간은 100ms 배수입니다.
 
-`assumptions`의 각 문자열은 `design.v1:`로 시작하고 **조건 하나당 JSON 객체 하나**를 담아요.
-
-> **자동 생성(`app/plc/directives.py`)**: 분석 에이전트가 지시문을 만들지 않아도, `generateDesign`이 지시문이 없는 조건에 한해 코드로 만들어요(신호 종류·조건 type·'유지/동안/정지/또는' 같은 뚜렷한 단서 사용). 모호하면(예: 버튼으로 시작하는데 유지인지 누르는 동안인지 불명) 만들지 않고 실패 이유에 조건 ID와 함께 알려요. 에이전트가 직접 쓴 지시문은 항상 우선해요.
-다음은 자기유지 예제 문장에 근거한 **시험용 값**이며, 사용자 설비 동작을 승인한 값이 아니에요.
-
-```json
-{
-  "assumptions": [
-    "design.v1:{\"condition_id\":\"C1\",\"mode\":\"self_hold\",\"inputs\":[{\"signal\":\"START\",\"active\":\"on\"}],\"join\":\"all\",\"outputs\":[\"MOTOR\"]}",
-    "design.v1:{\"condition_id\":\"C2\",\"mode\":\"block\",\"inputs\":[{\"signal\":\"STOP\",\"active\":\"off\"}],\"join\":\"all\",\"outputs\":[\"MOTOR\"]}"
-  ]
-}
+[규칙]
+- 모든 조건(conditions의 id)이 어떤 렁의 covers에 들어가야 합니다. 비상정지(plc_config.emergency_stop.used)가 켜져 있으면 모든 렁의 condition에 비상정지 X를 NO 접점으로 직렬(series) 연결합니다. 비상정지 버튼은 평상시 ON인 NC 버튼이라 래더에서는 NO 접점입니다.
+- 자기유지는 시작 접점과 자기 출력 접점(Y0 자신)을 parallel로 묶고 정지 접점을 series로 연결합니다.
+- 지연 뒤에도 유지해야 하면 타이머 완료 접점(T0)으로 내부 릴레이(M0)를 자기유지시킵니다.
+- 푸시버튼 NC 정지는 NO 접점(평상시 ON이라 정지 시 OFF), 푸시버튼 NO 시작은 NO 접점입니다.
+- 한 출력(Y)은 한 렁에서만 구동합니다(같은 Y를 두 렁에서 OUT 하지 않습니다).
+- 분석 결과의 assumptions를 지키고, 없는 신호를 만들지 않습니다. Q시리즈 래더·자동 모드만 지원합니다.
+- 설명 문장 없이 도구만 호출하고, 안전하다고 단정하지 않습니다.
 ```
 
-| 항목 | 정확한 의미 |
-| --- | --- |
-| `condition_id` | 비어 있지 않고 중복 없는 기존 조건 ID. 모든 조건에 지시가 필요해요(`must_pass:false`도 무시하지 않아요). |
-| `inputs` | `signal`은 등록 I/O 이름 또는 X/Y 주소, `active`는 원시 입력값이 `on`/`off`일 때 참이라는 뜻이에요. 극성은 반드시 명시해요. |
-| `join` | `all`은 모든 입력이 참(직렬), `any`는 하나라도 참(병렬)이에요. |
-| `outputs` | 실제 구동·차단할 등록 Y 출력 목록. 신호 종류는 모터·램프·솔레노이드만 지원해요. |
-| `timer` / `counter` | `TimerSpec.name` / `CounterSpec.name` 하나와 명시적으로 연결해요. 이름은 실제 할당 주소가 아니에요. |
+## 설계 단계가 하는 일
 
-| 조건 type / mode | 필요한 JSON 항목과 동작 |
-| --- | --- |
-| `sequence` / `direct` | `condition_id, mode, inputs, join, outputs`. 조건이 참인 동안 OUT, 거짓이면 OFF. |
-| `sequence` / `self_hold` | 위 항목. 시작 조건과 출력 피드백을 병렬로 연결해요. 여러 출력은 M 하나로 함께 유지하고 같은 정지·인터록을 적용해야 해요. 정지·차단 조건은 별도 `block` 지시로 명시해요. |
-| `interlock` / `block` | 위 항목. `inputs`와 `join`이 참이면 `outputs`를 차단해요. 출력마다 지시의 반대 논리를 직렬로 넣어요. 예: 평상시 ON인 NC STOP의 `active:off` → 허용 접점 NO. FWD ON 시 REV 차단은 `inputs:[FWD/on], outputs:[REV]`로 방향을 명시해요. |
-| `timing` / `on_delay` | 위 항목 + `timer`. 입력 조건이 참이면 TON, 완료 접점으로 출력해요. 입력·인터록·비상정지는 타이머 렁과 최종 출력 렁 모두에 적용해요. 시간은 100ms 배수 K1~K32767만 지원해요. |
-| `sequence` / `count` | 위 항목 + `counter, reset:"none"`. CTU 완료 접점으로 출력해요. 리셋하지 않는 누적 초안만 지원하며 실제 PLC 카운트·보존 동작은 미검증이에요. |
-| `safety` / `emergency_stop` | **`condition_id, mode`만** 써요. `cfg.emergency_stop.used`가 참이어야 하고, 이 조건의 signals는 설정된 비상정지 X 하나여야 해요. I/O kind는 `푸시버튼 NC`(평상시 ON). 래더 NO로 모든 구동 렁에 직렬 적용해요. |
+설계는 **설계 에이전트(AI)가 회로를 만들고 코드가 검사**하는 구조예요. 문장 해석이나 고정 규칙은 없어요.
+- `validateIr`: 저장 없이 검사만(`app/plc/design_check.py` → #63 `validate_ir`, `to_il`). 고칠 점(`errors`)과 IL을 돌려줘요.
+- `submitDesign`: 같은 검사를 통과하면 `design` 이벤트로 저장(IR, 실제 사용 I/O, 조건별 설명, 가정·한계, IL). 거부되면 `design_rejected` 이벤트와 `errors`를 돌려주고, 5번 거부되면 `FAILED`예요. 성공해도 상태는 **DESIGNING 유지**이며 안전 승인이 아니에요.
+- 코드가 막는 것: IR 형식 오류, 등록되지 않은 신호, 주소 범위·중복 출력, 조건을 만족하는 렁이 없음(covers), 비상정지 누락, Q시리즈·자동 모드 외 설정.
+- 코드가 못 막는 것: 회로 논리가 문장의 뜻과 다른 경우(예: 지연 뒤 유지 누락). 화면에 "자동 초안, 사람이 확인" 안내를 띄우고, 이후 검증 단계(#42)에서 다룰 예정이에요.
+- 내부 M/T/C 끝값은 매뉴얼 미확인 임시값(M8192/T2048/C1024)이라 `limitations`에 밝혀요.
+- 백엔드는 분석이 끝나 DESIGNING이 되면 팀장에게 "[설계 시작] job_id=..."를 보내요(`runner.py`). 정답 회로 예시는 `backend/tests/fixtures/ir_cases.json`이에요.
 
-필수 항목 누락·추가 항목·중복 JSON 키·중복 조건·등록되지 않은 신호·signals 불일치·미연결/중복 타이머·순환 출력 참조·구동하지 않는 출력의 인터록은
-조건 번호가 있는 `DesignError`가 돼요. 같은 렁에서 함께 구동하는 출력은 정지·인터록 지시가 같아야 하며 다르면 조건을 나눠야 해요.
-입력 X는 푸시버튼 NO/NC·센서·리미트스위치만 지원해요. 출력 Y를 조건 접점으로 쓰려면 해당 출력을 만드는 조건도 있어야 해요.
-각 출력은 한 구동 조건만 가져야 해요. 자기유지 피드백 외의 출력 참조 순환은 지원하지 않아요.
-Q 래더·호환 CPU·GX Works2/GX Developer·자동 모드만 지원해요. ST, 보존/경보/추가 모듈/다중 운전 모드, 리셋 카운터, 일반 자연어 설계는 미지원이에요.
-
-내부 주소는 `cfg.device_rule.M/T/C`에서 시작해요. 기준 데이터의 Q `internal_limits`가 있으면 **끝값 미포함** 상한으로 사용해요.
-현재 `plc_spec.json`에는 상한이 없어서 `design.py`의 **매뉴얼 미확인 임시값** M8192/T2048/C1024를 사용하고 결과 `limitations`에 밝혀요.
-내부 M/T/C를 실제 I/O 표인 것처럼 꾸미지 않아요. CPU 점수 또한 `verified:false`이며 실제 범위를 보증하지 않아요.
-
-설계 함수는 AI를 호출하지 않고 `validate_ir` → `to_il`로 검사해 END를 포함한 IL을 반환해요.
-REST는 `POST /agent/jobs/{job_id}/design`(통합 서버에서는 `/api/agent/jobs/{job_id}/design`),
-MCP는 `generateDesign`에 `job_id` 문자열 하나만 보내요. 기존 `X-API-Key` 인증을 그대로 사용해요.
-성공 응답은 기존 상태 정보 + `design`(IR, 실제 사용 I/O, 조건별 설명, 가정·한계, IL)이에요.
-`design` 이벤트가 이미 있으면 재생성하지 않아요. 성공해도 **DESIGNING 유지**이며 다음 단계 호출·안전 승인은 하지 않아요.
-설계나 저장된 계약 형식이 잘못되면 `design_error` 이유를 남기고 기존 `fail_job`으로 FAILED 처리해요.
-REST의 설계 실패는 HTTP 200 안에 `state:FAILED, design:null, reason`이므로 상태를 반드시 확인해요.
-MCP는 같은 내용을 JSON 텍스트로 반환하고 `isError:true`로 표시해요. 없는 작업은 404, 다른 상태에서 호출하면 409예요.
-
-`backend/tests/fixtures/design_cases.json`은 기존 예제 3개의 입력에 지시를 덧붙이는 시험 데이터예요.
-`estop_interlock.json`의 기존 문장 C2는 FWD→REV 차단인데 기존 고정 IR은 반대 방향만 반영했어요.
-새 시험은 기존 파일을 수정하지 않고 X3(역방향 시작), C4(역방향 순간 구동), C5(STOP으로 두 출력 정지)를 **시험용으로** 추가해
-REV를 실제 구동하는 렁에서 C2를 차단하는지 검사해요. 기존 `expected_il.json`을 정답으로 복제하지 않아요.
 
 ## 4. 시험
 
@@ -173,7 +141,7 @@ REV를 실제 구동하는 렁에서 C2를 차단하는지 검사해요. 기존 
 
 | 이슈 | 이어 붙일 곳 | 입력 → 출력 (계약: `app/contracts.py`) |
 |---|---|---|
-| #41 설계 | `DESIGNING`에서 `generateDesign` 호출 | 명시 지시가 있는 `StructuredRequirements` → 초안 저장. 상태는 `DESIGNING` 유지. `VERIFYING` 연결은 이번 범위 밖 |
+| #41 설계 | 백엔드가 `[설계 시작]`을 보냄 → 설계 에이전트 | `StructuredRequirements` → `Ir` → 검사 통과 시 초안 저장. 상태는 `DESIGNING` 유지. `VERIFYING` 연결은 이번 범위 밖 |
 | #42 검증 | `VERIFYING` 상태에서 호출 | `Ir` → `VerificationResult`. 결과는 `reportVerification`/`orchestrator.report_verification`으로 |
 | #43 수정 | `FIXING` 상태 | `VerificationResult.errors` → 고친 `Ir` |
 | #44 파일 생성 | `COMPLETED → GENERATING → DELIVERED` | `Ir` → GX Works 파일 |

@@ -21,11 +21,18 @@ def _obj(props: dict, required: list[str]) -> dict:
 
 _ID = {"type": "string", "description": "프로젝트 ID"}
 _JOB = {"type": "string", "description": "작업(job) ID"}
+_IR = {"type": "object", "description": "회로 IR JSON: {version:1, rungs:[{id, comment, condition, outputs, covers}]}"}
 
 TOOLS = [
-    {"name": "generateDesign",
-     "description": "명시적인 design.v1 지시로 설계 초안을 저장해요. 성공은 DESIGNING 유지, 실패는 FAILED이며 안전 승인이 아니에요.",
+    {"name": "getDesignInput",
+     "description": "설계할 분석 결과(requirements: plc_config, io_list, conditions)를 읽어요. DESIGNING 상태에서만 가능해요.",
      "inputSchema": _obj({"job_id": _JOB}, ["job_id"])},
+    {"name": "validateIr",
+     "description": "회로(IR)를 저장하지 않고 검사해요. errors가 있으면 고쳐서 다시 검사하세요.",
+     "inputSchema": _obj({"job_id": _JOB, "ir": _IR}, ["job_id", "ir"])},
+    {"name": "submitDesign",
+     "description": "회로(IR)를 제출해요. 검사를 통과하면 저장되고, 거부되면 errors를 돌려줘요. 5번 거부되면 작업이 FAILED가 돼요.",
+     "inputSchema": _obj({"job_id": _JOB, "ir": _IR}, ["job_id", "ir"])},
     {"name": "getJob", "description": "백엔드가 시작한 작업(job_id)의 상태와 분석할 입력(plc_config, io_list, conditions, answers)을 돌려줘요.",
      "inputSchema": _obj({"job_id": _JOB}, ["job_id"])},
     {"name": "submitRequirements",
@@ -41,10 +48,12 @@ TOOLS = [
 
 
 def _call(name: str, a: dict):
-    if name == "generateDesign":
-        if set(a) != {"job_id"} or not isinstance(a["job_id"], str) or not a["job_id"]:
-            raise TypeError("generateDesign에는 비어 있지 않은 job_id 문자열 하나만 필요해요.")
-        return agent_api.generate_design(a["job_id"])
+    if name == "getDesignInput":
+        return agent_api.get_design_input(a["job_id"])
+    if name in ("validateIr", "submitDesign"):
+        body = agent_api.IrBody(ir=a["ir"])
+        fn = agent_api.validate_ir_tool if name == "validateIr" else agent_api.submit_design
+        return fn(a["job_id"], body)
     if name == "getJob":
         return agent_api.get_job(a["job_id"])
     if name == "submitRequirements":
@@ -91,8 +100,8 @@ def handle(msg: dict) -> dict | None:
             return _tool_result(id_, str(e.detail), True)
         except (ValidationError, TypeError) as e:
             return _tool_result(id_, f"입력 형식이 올바르지 않아요: {e}", True)
-        if p.get("name") == "generateDesign":
-            return _tool_result(id_, json.dumps(data, ensure_ascii=False), data["state"] == "FAILED")
+        if p.get("name") == "submitDesign":
+            return _tool_result(id_, json.dumps(data, ensure_ascii=False), not data["ok"])
         return _tool_result(id_, json.dumps(data, ensure_ascii=False))
     return _error(id_, -32601, f"지원하지 않는 메서드: {method}")
 

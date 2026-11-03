@@ -1,0 +1,535 @@
+{
+ "self_hold": {
+  "requirements": {
+   "plc_config": {
+    "series": "Q",
+    "cpu": "Q06HCPU",
+    "language": "ladder",
+    "software": "GX Works2",
+    "x_points": 32,
+    "y_points": 32,
+    "control_target": "컨베이어",
+    "safety_ack": true,
+    "emergency_stop": {
+     "used": false,
+     "device": ""
+    },
+    "modules": [],
+    "device_rule": {
+     "M": 0,
+     "D": 0,
+     "T": 0,
+     "C": 0
+    },
+    "timer_unit_ms": 100,
+    "modes": [
+     "자동"
+    ],
+    "retentive": false,
+    "alarm": false,
+    "project_name": "SELF_HOLD",
+    "comment_lang": "ko",
+    "note": ""
+   },
+   "io_list": [
+    {
+     "device": "X1",
+     "name": "START",
+     "kind": "푸시버튼 NO",
+     "desc": "시작 버튼"
+    },
+    {
+     "device": "X2",
+     "name": "STOP",
+     "kind": "푸시버튼 NC",
+     "desc": "정지 버튼(평상시 ON)"
+    },
+    {
+     "device": "Y0",
+     "name": "MOTOR",
+     "kind": "모터",
+     "desc": "컨베이어 모터"
+    }
+   ],
+   "conditions": [
+    {
+     "id": "C1",
+     "type": "sequence",
+     "text": "START를 누르면 MOTOR가 켜지고 손을 떼도 유지된다.",
+     "must_pass": true,
+     "signals": [
+      "START",
+      "MOTOR"
+     ]
+    },
+    {
+     "id": "C2",
+     "type": "interlock",
+     "text": "STOP을 누르면 MOTOR가 꺼진다.",
+     "must_pass": true,
+     "signals": [
+      "STOP",
+      "MOTOR"
+     ]
+    }
+   ],
+   "timers": [],
+   "counters": [],
+   "assumptions": [],
+   "questions": []
+  },
+  "ir": {
+   "version": 1,
+   "rungs": [
+    {
+     "id": "R1",
+     "comment": "조건 C1, C2: ((START(X1) 신호값이 ON 또는 MOTOR(Y0) 신호값이 ON) 그리고 STOP(X2) 신호값이 ON)일 때 MOTOR(Y0)를 켜고 조건이 거짓이면 꺼요",
+     "condition": {
+      "type": "AND",
+      "items": [
+       {
+        "type": "OR",
+        "items": [
+         {
+          "type": "contact",
+          "kind": "NO",
+          "signal": "X1"
+         },
+         {
+          "type": "contact",
+          "kind": "NO",
+          "signal": "Y0"
+         }
+        ]
+       },
+       {
+        "type": "contact",
+        "kind": "NO",
+        "signal": "X2"
+       }
+      ]
+     },
+     "outputs": [
+      {
+       "kind": "OUT",
+       "target": "Y0",
+       "preset_ms": null,
+       "preset": null
+      }
+     ],
+     "covers": [
+      "C1",
+      "C2"
+     ]
+    }
+   ]
+  },
+  "expected_il": [
+   "LD X1",
+   "OR Y0",
+   "AND X2",
+   "OUT Y0",
+   "END"
+  ]
+ },
+ "on_delay": {
+  "requirements": {
+   "plc_config": {
+    "series": "Q",
+    "cpu": "Q06HCPU",
+    "language": "ladder",
+    "software": "GX Works2",
+    "x_points": 32,
+    "y_points": 32,
+    "control_target": "컨베이어",
+    "safety_ack": true,
+    "emergency_stop": {
+     "used": false,
+     "device": ""
+    },
+    "modules": [],
+    "device_rule": {
+     "M": 0,
+     "D": 0,
+     "T": 0,
+     "C": 0
+    },
+    "timer_unit_ms": 100,
+    "modes": [
+     "자동"
+    ],
+    "retentive": false,
+    "alarm": false,
+    "project_name": "ON_DELAY",
+    "comment_lang": "ko",
+    "note": ""
+   },
+   "io_list": [
+    {
+     "device": "X1",
+     "name": "START",
+     "kind": "푸시버튼 NO",
+     "desc": "시작 버튼"
+    },
+    {
+     "device": "Y0",
+     "name": "LAMP",
+     "kind": "램프",
+     "desc": "경고 램프"
+    },
+    {
+     "device": "Y1",
+     "name": "MOTOR",
+     "kind": "모터",
+     "desc": "컨베이어 모터"
+    }
+   ],
+   "conditions": [
+    {
+     "id": "C1",
+     "type": "sequence",
+     "text": "START를 누르면 LAMP가 켜진다.",
+     "must_pass": true,
+     "signals": [
+      "START",
+      "LAMP"
+     ]
+    },
+    {
+     "id": "C2",
+     "type": "timing",
+     "text": "LAMP가 켜진 뒤 3초 후에 MOTOR가 켜진다.",
+     "must_pass": true,
+     "signals": [
+      "LAMP",
+      "MOTOR"
+     ]
+    }
+   ],
+   "timers": [
+    {
+     "name": "T0",
+     "preset_ms": 3000,
+     "purpose": "램프 후 모터 지연"
+    }
+   ],
+   "counters": [],
+   "assumptions": [
+    "START를 떼면 램프와 모터가 꺼진다고 가정했어요."
+   ],
+   "questions": []
+  },
+  "ir": {
+   "version": 1,
+   "rungs": [
+    {
+     "id": "R1",
+     "comment": "조건 C1: START(X1) 신호값이 ON일 때 LAMP(Y0)를 켜고 조건이 거짓이면 꺼요",
+     "condition": {
+      "type": "contact",
+      "kind": "NO",
+      "signal": "X1"
+     },
+     "outputs": [
+      {
+       "kind": "OUT",
+       "target": "Y0",
+       "preset_ms": null,
+       "preset": null
+      }
+     ],
+     "covers": [
+      "C1"
+     ]
+    },
+    {
+     "id": "R2",
+     "comment": "조건 C2: LAMP(Y0) 신호값이 ON일 때 T0 타이머를 3000ms 동안 동작시켜요",
+     "condition": {
+      "type": "contact",
+      "kind": "NO",
+      "signal": "Y0"
+     },
+     "outputs": [
+      {
+       "kind": "TON",
+       "target": "T0",
+       "preset_ms": 3000,
+       "preset": null
+      }
+     ],
+     "covers": [
+      "C2"
+     ]
+    },
+    {
+     "id": "R3",
+     "comment": "조건 C2: T0 신호값이 ON일 때 MOTOR(Y1)를 켜고 조건이 거짓이면 꺼요",
+     "condition": {
+      "type": "contact",
+      "kind": "NO",
+      "signal": "T0"
+     },
+     "outputs": [
+      {
+       "kind": "OUT",
+       "target": "Y1",
+       "preset_ms": null,
+       "preset": null
+      }
+     ],
+     "covers": [
+      "C2"
+     ]
+    }
+   ]
+  },
+  "expected_il": [
+   "LD X1",
+   "OUT Y0",
+   "LD Y0",
+   "OUT T0 K30",
+   "LD T0",
+   "OUT Y1",
+   "END"
+  ]
+ },
+ "estop_interlock": {
+  "requirements": {
+   "plc_config": {
+    "series": "Q",
+    "cpu": "Q06HCPU",
+    "language": "ladder",
+    "software": "GX Works2",
+    "x_points": 32,
+    "y_points": 32,
+    "control_target": "컨베이어",
+    "safety_ack": true,
+    "emergency_stop": {
+     "used": true,
+     "device": "X0"
+    },
+    "modules": [],
+    "device_rule": {
+     "M": 0,
+     "D": 0,
+     "T": 0,
+     "C": 0
+    },
+    "timer_unit_ms": 100,
+    "modes": [
+     "자동"
+    ],
+    "retentive": false,
+    "alarm": false,
+    "project_name": "ESTOP",
+    "comment_lang": "ko",
+    "note": ""
+   },
+   "io_list": [
+    {
+     "device": "X0",
+     "name": "EMG",
+     "kind": "푸시버튼 NC",
+     "desc": "비상정지(평상시 ON)"
+    },
+    {
+     "device": "X1",
+     "name": "START",
+     "kind": "푸시버튼 NO",
+     "desc": "시작"
+    },
+    {
+     "device": "X2",
+     "name": "STOP",
+     "kind": "푸시버튼 NC",
+     "desc": "정지(평상시 ON)"
+    },
+    {
+     "device": "Y0",
+     "name": "MOTOR_FWD",
+     "kind": "모터",
+     "desc": "정방향"
+    },
+    {
+     "device": "Y1",
+     "name": "MOTOR_REV",
+     "kind": "모터",
+     "desc": "역방향"
+    },
+    {
+     "device": "X3",
+     "name": "REV_START",
+     "kind": "푸시버튼 NO",
+     "desc": "시험용 역방향 시작"
+    }
+   ],
+   "conditions": [
+    {
+     "id": "C1",
+     "type": "sequence",
+     "text": "START를 누르면 MOTOR_FWD가 켜지고 유지된다.",
+     "must_pass": true,
+     "signals": [
+      "START",
+      "MOTOR_FWD"
+     ]
+    },
+    {
+     "id": "C2",
+     "type": "interlock",
+     "text": "MOTOR_FWD가 켜져 있으면 MOTOR_REV는 켜지지 않는다.",
+     "must_pass": true,
+     "signals": [
+      "MOTOR_FWD",
+      "MOTOR_REV"
+     ]
+    },
+    {
+     "id": "C3",
+     "type": "safety",
+     "text": "비상정지(X0) 입력 시 모든 출력을 OFF 한다.",
+     "must_pass": true,
+     "signals": [
+      "X0"
+     ]
+    },
+    {
+     "id": "C4",
+     "type": "sequence",
+     "text": "시험용 REV_START를 누르는 동안 MOTOR_REV가 켜진다.",
+     "must_pass": true,
+     "signals": [
+      "REV_START",
+      "MOTOR_REV"
+     ]
+    },
+    {
+     "id": "C5",
+     "type": "interlock",
+     "text": "시험용 STOP을 누르면 정방향과 역방향 출력이 모두 꺼진다.",
+     "must_pass": true,
+     "signals": [
+      "STOP",
+      "MOTOR_FWD",
+      "MOTOR_REV"
+     ]
+    }
+   ],
+   "timers": [],
+   "counters": [],
+   "assumptions": [
+    "비상정지 조건은 입력 설정에 따라 자동으로 추가했어요."
+   ],
+   "questions": []
+  },
+  "ir": {
+   "version": 1,
+   "rungs": [
+    {
+     "id": "R1",
+     "comment": "조건 C1, C5, C3: ((START(X1) 신호값이 ON 또는 MOTOR_FWD(Y0) 신호값이 ON) 그리고 STOP(X2) 신호값이 ON 그리고 EMG(X0) 신호값이 ON)일 때 MOTOR_FWD(Y0)를 켜고 조건이 거짓이면 꺼요",
+     "condition": {
+      "type": "AND",
+      "items": [
+       {
+        "type": "OR",
+        "items": [
+         {
+          "type": "contact",
+          "kind": "NO",
+          "signal": "X1"
+         },
+         {
+          "type": "contact",
+          "kind": "NO",
+          "signal": "Y0"
+         }
+        ]
+       },
+       {
+        "type": "contact",
+        "kind": "NO",
+        "signal": "X2"
+       },
+       {
+        "type": "contact",
+        "kind": "NO",
+        "signal": "X0"
+       }
+      ]
+     },
+     "outputs": [
+      {
+       "kind": "OUT",
+       "target": "Y0",
+       "preset_ms": null,
+       "preset": null
+      }
+     ],
+     "covers": [
+      "C1",
+      "C5",
+      "C3"
+     ]
+    },
+    {
+     "id": "R2",
+     "comment": "조건 C4, C2, C5, C3: (REV_START(X3) 신호값이 ON 그리고 MOTOR_FWD(Y0) 신호값이 OFF 그리고 STOP(X2) 신호값이 ON 그리고 EMG(X0) 신호값이 ON)일 때 MOTOR_REV(Y1)를 켜고 조건이 거짓이면 꺼요",
+     "condition": {
+      "type": "AND",
+      "items": [
+       {
+        "type": "contact",
+        "kind": "NO",
+        "signal": "X3"
+       },
+       {
+        "type": "contact",
+        "kind": "NC",
+        "signal": "Y0"
+       },
+       {
+        "type": "contact",
+        "kind": "NO",
+        "signal": "X2"
+       },
+       {
+        "type": "contact",
+        "kind": "NO",
+        "signal": "X0"
+       }
+      ]
+     },
+     "outputs": [
+      {
+       "kind": "OUT",
+       "target": "Y1",
+       "preset_ms": null,
+       "preset": null
+      }
+     ],
+     "covers": [
+      "C4",
+      "C2",
+      "C5",
+      "C3"
+     ]
+    }
+   ]
+  },
+  "expected_il": [
+   "LD X1",
+   "OR Y0",
+   "AND X2",
+   "AND X0",
+   "OUT Y0",
+   "LD X3",
+   "ANI Y0",
+   "AND X2",
+   "AND X0",
+   "OUT Y1",
+   "END"
+  ]
+ }
+}

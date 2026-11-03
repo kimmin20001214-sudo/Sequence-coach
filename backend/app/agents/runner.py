@@ -66,20 +66,33 @@ def _message(project_id: str, job_id: str) -> str:
     )
 
 
-def run_directline(job_id: str) -> None:
+def _design_message(job_id: str) -> str:
+    return (
+        f"[설계 시작] job_id={job_id}\n"
+        "설계 에이전트에게 맡겨 주세요. getDesignInput으로 분석 결과를 읽어 회로(IR)를 만들고, "
+        "validateIr로 고친 뒤 submitDesign으로 제출해야 해요."
+    )
+
+
+def _designed(job_id: str) -> bool:
+    return any(e["kind"] == "design" for e in db.list_events(job_id))
+
+
+def run_directline(job_id: str, design: bool = False) -> None:
     base = os.environ.get("COPILOT_DIRECTLINE_URL", DEFAULT_URL).rstrip("/")
     timeout = float(os.environ.get("COPILOT_TIMEOUT_SECONDS", "180"))
     job = db.get_job(job_id)
     conv = _http("POST", f"{base}/conversations", _initial_token())
     token, cid = conv.get("token") or _initial_token(), conv["conversationId"]
     _http("POST", f"{base}/conversations/{cid}/activities", token, {
-        "type": "message", "from": {"id": "plc-backend"}, "text": _message(job["project_id"], job_id),
+        "type": "message", "from": {"id": "plc-backend"},
+        "text": _design_message(job_id) if design else _message(job["project_id"], job_id),
     })
-    db.add_event(job_id, _state(job_id), "agent_called", {"channel": "directline"})
+    db.add_event(job_id, _state(job_id), "agent_called", {"channel": "directline", "phase": "design" if design else "analysis"})
 
     watermark, deadline = "", time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if _state(job_id) != "ANALYZING":
+        if (_state(job_id) != "DESIGNING" or _designed(job_id)) if design else _state(job_id) != "ANALYZING":
             return
         url = f"{base}/conversations/{cid}/activities" + (f"?watermark={watermark}" if watermark else "")
         page = _http("GET", url, token)
@@ -106,7 +119,7 @@ def _run(job_id: str, chosen: str) -> None:
     try:
         (run_directline if chosen == "directline" else run_demo)(job_id)
         if chosen == "directline" and _state(job_id) == "DESIGNING":
-            orchestrator.generate_design(job_id)  # 설계는 AI 없는 코드라 에이전트 호출 없이 바로 실행한다
+            run_directline(job_id, design=True)
     except Exception as e:  # 어떤 실패든 작업이 ANALYZING에 멈추지 않게 기록한다
         reason = f"에이전트 호출에 실패했어요. ({type(e).__name__})"
         if isinstance(e, urllib.error.HTTPError):
