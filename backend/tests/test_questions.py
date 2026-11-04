@@ -35,6 +35,18 @@ def test_vague_question_not_duplicated_by_agent():
     assert len(req.questions) == 1
 
 
+def test_vague_question_not_repeated_when_answered_in_agent_wording():
+    answers = [{"question": "C1의 '잠시 후'는 몇 초 후입니까?", "answer": "2초"}]
+    req = analyzer.finalize(project("START 누르면 잠시 후 MOTOR ON"), analysis([]), answers)
+    assert req.questions == []
+
+
+def test_vague_question_not_repeated_when_answered_by_condition_id():
+    answers = [{"question": "C1에서 STOP_PB 지연은 몇 초입니까?", "answer": "3초"}]
+    req = analyzer.finalize(project("START 누르면 잠시 후 MOTOR ON"), analysis([]), answers)
+    assert req.questions == []
+
+
 def test_blocking_questions_come_before_agent_questions():
     req = analyzer.finalize(project("START 누르면 잠시 후 MOTOR ON"), analysis(["a", "b", "c", "d"]))
     assert "잠시" in req.questions[0]

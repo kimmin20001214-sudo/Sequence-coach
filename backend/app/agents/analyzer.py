@@ -24,7 +24,7 @@ def _known(p: ProjectInput) -> set[str]:
 def _covered(question: str, agent_text: str) -> bool:
     cid = question.split("의 '")[0].replace("조건 ", "").strip()
     word = question.split("'")[1] if "'" in question else ""
-    return bool(word) and word in agent_text or bool(re.search(rf"\b{re.escape(cid)}\b", agent_text))
+    return bool(word) and word in agent_text or bool(re.search(rf"(?<![A-Za-z0-9]){re.escape(cid)}(?![0-9])", agent_text))
 
 
 def vague_questions(project: ProjectInput) -> list[str]:
@@ -42,6 +42,9 @@ def finalize(project: ProjectInput, analysis: LlmAnalysis, answers: list[dict] |
     conditions = [c.model_copy(update={"id": f"C{i + 1}"}) for i, c in enumerate(analysis.conditions)]
     assumptions = list(analysis.assumptions) + [f"사용자 답변: {a['question']} → {a['answer']}" for a in answers]
     questions = list(dict.fromkeys(vague_questions(project)))
+    # 사용자가 이미 답한 조건은 질문 문구가 달라져도 모호한 표현 질문을 다시 하지 않는다.
+    answered_text = " ".join(answered)
+    questions = [q for q in questions if not _covered(q, answered_text)]
     # 에이전트가 같은 모호한 표현을 이미 물었다면 백엔드의 기본 질문은 빼서 중복을 막는다.
     agent_text = " ".join(analysis.questions)
     questions = [q for q in questions if not _covered(q, agent_text)]
