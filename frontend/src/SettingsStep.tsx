@@ -1,4 +1,4 @@
-import {
+﻿import {
   SPEC, LANGUAGE_LABELS, CONTROL_TARGETS, IO_KINDS, MODULES, OPERATION_MODES, SAFETY_NOTICE, emptyRow, initialConfig,
   type Config, type Condition,
 } from "./spec";
@@ -20,6 +20,8 @@ interface Props {
 export default function SettingsStep({ cfg, setCfg, conditions, setConditions, result, onNext }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [csvMsg, setCsvMsg] = useState<{ text: string; err?: boolean } | null>(null);
+  const [advOpen, setAdvOpen] = useState(false);
+  const showAdv = advOpen || !!result?.fields?.project_name;
   const spec = SPEC[cfg.series];
   const f = result?.fields ?? {};
   const ioErr = result?.io ?? {};
@@ -151,7 +153,12 @@ export default function SettingsStep({ cfg, setCfg, conditions, setConditions, r
         {f.safety_ack && <span className="msg err">{f.safety_ack}</span>}
       </Card>
 
-      <Card title="선택 항목" desc="입력하지 않으면 기본값이 적용되고, 가정사항에 기록돼요.">
+      <div className={"adv-box" + (showAdv ? " open" : "")}>
+      <button type="button" className="btn ghost adv-btn" aria-expanded={showAdv} onClick={() => setAdvOpen(!advOpen)}>
+        {showAdv ? "고급 설정 닫기 ▲" : "고급 설정 열기 ▼"}
+      </button>
+      {showAdv && (
+      <Card title="고급 설정 (선택)" desc="입력하지 않으면 기본값이 적용되고, 가정사항에 기록돼요.">
         <div className="grid">
           <Field group label="사용 모듈"><Chips options={MODULES} selected={cfg.modules} onToggle={toggle("modules")} /></Field>
           <Field group label="운전 모드"><Chips options={OPERATION_MODES} selected={cfg.modes} onToggle={toggle("modes")} /></Field>
@@ -175,6 +182,8 @@ export default function SettingsStep({ cfg, setCfg, conditions, setConditions, r
           <Field label="비고 / 기타 제약"><input value={cfg.note} onChange={(e) => update({ note: e.target.value })} /></Field>
         </div>
       </Card>
+      )}
+      </div>
 
       <div className="actions">
         <span />

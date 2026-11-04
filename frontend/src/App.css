@@ -1,4 +1,4 @@
-.notice { background: var(--warn-bg); border-bottom: 1px solid var(--warn-line); padding: 8px 24px; font-size: 13px; text-align: center; }
+﻿.notice { background: var(--warn-bg); border-bottom: 1px solid var(--warn-line); padding: 8px 24px; font-size: 13px; text-align: center; }
 
 .top { padding: 20px 24px 8px; max-width: 1080px; margin: 0 auto; }
 .brand { display: flex; align-items: center; gap: 14px; }
@@ -96,3 +96,7 @@ select:disabled { background: var(--bg); color: var(--muted); }
 .guide ul { margin: 10px 0 0; padding-left: 18px; font-size: 13px; color: var(--text); display: flex; flex-direction: column; gap: 6px; }
 .guide .chips { margin-top: 10px; }
 .guide .chip { text-align: left; }
+.adv-box { margin-bottom: 18px; }
+.adv-box .adv-btn { display: block; width: 100%; margin: 0; padding: 14px; font-size: 15px; font-weight: 600; border: 0; border-radius: var(--radius); background: var(--primary-soft); color: var(--primary); text-align: center; }
+.adv-box .adv-btn:hover { background: var(--primary-soft); filter: brightness(0.97); }
+.adv-box.open .adv-btn { margin-bottom: 14px; }
