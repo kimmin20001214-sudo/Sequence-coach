@@ -1,4 +1,4 @@
-.notice { background: var(--warn-bg); border-bottom: 1px solid var(--warn-line); padding: 8px 24px; font-size: 13px; text-align: center; }
+﻿.notice { background: var(--warn-bg); border-bottom: 1px solid var(--warn-line); padding: 8px 24px; font-size: 13px; text-align: center; }
 
 .top { padding: 20px 24px 8px; max-width: 1080px; margin: 0 auto; }
 .brand { display: flex; align-items: center; gap: 14px; }
@@ -24,9 +24,9 @@ main { min-width: 0; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; margin-bottom: 18px; box-shadow: var(--shadow); }
 .adv-box { margin-bottom: 18px; border: 1.5px solid var(--primary); border-radius: var(--radius); overflow: hidden; }
 .adv-box .card { border: 0; box-shadow: none; margin-bottom: 0; border-radius: 0; }
-.adv-btn { display: block; width: 100%; margin: 0; padding: 14px; font-size: 15px; font-weight: 600; border: 0; border-radius: 0; background: var(--primary-soft); color: var(--primary); text-align: center; }
+.adv-box .adv-btn { display: block; width: 100%; margin: 0; padding: 14px; font-size: 15px; font-weight: 600; border: 0; border-radius: 0; background: var(--primary-soft); color: var(--primary); text-align: center; }
 .adv-box.open .adv-btn { border-bottom: 1.5px solid var(--primary); }
-.adv-btn:hover { background: var(--primary-soft); filter: brightness(0.97); }
+.adv-box .adv-btn:hover { background: var(--primary-soft); filter: brightness(0.97); }
 .card-head h2 { margin: 0; font-size: 17px; letter-spacing: -0.01em; }
 .card-head p { margin: 4px 0 16px; font-size: 13px; color: var(--muted); }
 
