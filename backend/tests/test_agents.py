@@ -53,7 +53,7 @@ def test_two_conditions_structured_and_moves_to_designing(client):
     pid = make_project(client, ["START 누르면 MOTOR ON", "EMG 누르면 모두 OFF"])
     job = start(client, pid)["job"]["job_id"]
     r = client.post(f"/agent/jobs/{job}/requirements", headers=KEY, json={"conditions": [
-        {"type": "sequence", "text": "START 누르면 MOTOR ON 유지", "signals": ["START", "MOTOR"]},
+        {"type": "sequence", "text": "START 누르면 MOTOR ON", "signals": ["START", "MOTOR"]},
         {"type": "safety", "text": "EMG 누르면 모두 OFF", "signals": ["X0"]},
     ]})
     assert r.status_code == 200, r.text
@@ -121,9 +121,7 @@ def test_agent_spec_is_openapi_30_with_tools_only(client):
     assert spec["openapi"].startswith("3.0")
     assert set(spec["paths"]) == {"/agent/projects/{project_id}/jobs", "/agent/projects/{project_id}/status",
                                   "/agent/jobs/{job_id}", "/agent/jobs/{job_id}/requirements",
-                                  "/agent/jobs/{job_id}/verification", "/agent/jobs/{job_id}/design",
-                                  "/agent/jobs/{job_id}/design-input", "/agent/jobs/{job_id}/design-check"}
+                                  "/agent/jobs/{job_id}/verification"}
     ids = {op["operationId"] for p in spec["paths"].values() for op in p.values()}
-    assert ids == {"startJob", "getStatus", "getJob", "submitRequirements", "reportVerification", "submitDesign",
-                   "getDesignInput", "validateIr"}
+    assert ids == {"startJob", "getStatus", "getJob", "submitRequirements", "reportVerification"}
     assert "null" not in str(spec)
