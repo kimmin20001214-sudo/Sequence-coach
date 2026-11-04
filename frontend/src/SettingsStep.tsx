@@ -153,6 +153,7 @@ export default function SettingsStep({ cfg, setCfg, conditions, setConditions, r
         {f.safety_ack && <span className="msg err">{f.safety_ack}</span>}
       </Card>
 
+      <div className={"adv-box" + (showAdv ? " open" : "")}>
       <button type="button" className="btn ghost adv-btn" aria-expanded={showAdv} onClick={() => setAdvOpen(!advOpen)}>
         {showAdv ? "고급 설정 닫기 ▲" : "고급 설정 열기 ▼"}
       </button>
@@ -182,6 +183,7 @@ export default function SettingsStep({ cfg, setCfg, conditions, setConditions, r
         </div>
       </Card>
       )}
+      </div>
 
       <div className="actions">
         <span />
