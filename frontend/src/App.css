@@ -22,8 +22,7 @@
 main { min-width: 0; }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; margin-bottom: 18px; box-shadow: var(--shadow); }
-.link-btn { background: none; border: 0; padding: 4px 0; margin: 0 0 14px; font-size: 13px; color: var(--muted); text-decoration: underline; cursor: pointer; }
-.link-btn:hover { color: inherit; }
+.adv-btn { display: block; width: 100%; margin: 0 0 18px; padding: 14px; font-size: 15px; font-weight: 600; border: 1.5px dashed var(--line); text-align: center; }
 .card-head h2 { margin: 0; font-size: 17px; letter-spacing: -0.01em; }
 .card-head p { margin: 4px 0 16px; font-size: 13px; color: var(--muted); }
 

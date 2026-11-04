@@ -153,7 +153,7 @@ export default function SettingsStep({ cfg, setCfg, conditions, setConditions, r
         {f.safety_ack && <span className="msg err">{f.safety_ack}</span>}
       </Card>
 
-      <button type="button" className="link-btn" aria-expanded={showAdv} onClick={() => setAdvOpen(!advOpen)}>
+      <button type="button" className="btn ghost adv-btn" aria-expanded={showAdv} onClick={() => setAdvOpen(!advOpen)}>
         {showAdv ? "고급 설정 닫기 ▲" : "고급 설정 열기 ▼"}
       </button>
       {showAdv && (
