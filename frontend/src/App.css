@@ -22,7 +22,8 @@
 main { min-width: 0; }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; margin-bottom: 18px; box-shadow: var(--shadow); }
-.adv-btn { display: block; width: 100%; margin: 0 0 18px; padding: 14px; font-size: 15px; font-weight: 600; border: 1.5px dashed var(--line); text-align: center; }
+.adv-btn { display: block; width: 100%; margin: 0 0 18px; padding: 14px; font-size: 15px; font-weight: 600; border: 1.5px solid var(--primary); background: var(--primary-soft); color: var(--primary); text-align: center; }
+.adv-btn:hover { background: var(--primary-soft); filter: brightness(0.97); }
 .card-head h2 { margin: 0; font-size: 17px; letter-spacing: -0.01em; }
 .card-head p { margin: 4px 0 16px; font-size: 13px; color: var(--muted); }
 
