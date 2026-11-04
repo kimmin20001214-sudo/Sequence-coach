@@ -22,6 +22,8 @@
 main { min-width: 0; }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; margin-bottom: 18px; box-shadow: var(--shadow); }
+.advanced { margin-bottom: 18px; }
+.advanced > summary { cursor: pointer; padding: 12px 4px; font-weight: 600; color: var(--muted); }
 .card-head h2 { margin: 0; font-size: 17px; letter-spacing: -0.01em; }
 .card-head p { margin: 4px 0 16px; font-size: 13px; color: var(--muted); }
 

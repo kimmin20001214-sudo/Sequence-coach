@@ -151,6 +151,8 @@ export default function SettingsStep({ cfg, setCfg, conditions, setConditions, r
         {f.safety_ack && <span className="msg err">{f.safety_ack}</span>}
       </Card>
 
+      <details className="advanced">
+      <summary>고급 설정 (선택) — 비워 두면 기본값이 적용돼요</summary>
       <Card title="선택 항목" desc="입력하지 않으면 기본값이 적용되고, 가정사항에 기록돼요.">
         <div className="grid">
           <Field group label="사용 모듈"><Chips options={MODULES} selected={cfg.modules} onToggle={toggle("modules")} /></Field>
@@ -175,6 +177,7 @@ export default function SettingsStep({ cfg, setCfg, conditions, setConditions, r
           <Field label="비고 / 기타 제약"><input value={cfg.note} onChange={(e) => update({ note: e.target.value })} /></Field>
         </div>
       </Card>
+      </details>
 
       <div className="actions">
         <span />
