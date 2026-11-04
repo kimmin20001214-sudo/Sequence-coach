@@ -6,7 +6,7 @@ const STATE_LABEL: Record<string, string> = {
   INPUT_VALIDATED: "입력 확인됨",
   ANALYZING: "조건 분석 중",
   NEEDS_INPUT: "추가 정보 필요",
-  DESIGNING: "분석 완료 · 설계 단계 (설계 에이전트 연결 전)",
+  DESIGNING: "설계 에이전트 작업 중 · 완료되면 회로가 아래에 표시돼요",
   VERIFYING: "검증 중",
   FIXING: "수정 중",
   COMPLETED: "검증 통과",
@@ -17,6 +17,31 @@ const STATE_LABEL: Record<string, string> = {
 };
 const FINAL = new Set(["NEEDS_INPUT", "DESIGNING", "COMPLETED", "DELIVERED", "ESCALATED", "FAILED"]);
 const SHOWN = new Set(["created", "started", "requirements", "questions", "error", "verified", "escalated"]);
+
+interface DesignData {
+  il: string[];
+  io_used: { device: string; name: string; kind: string; desc: string }[];
+  explanation: { rung_id: string; condition_ids: string[]; text: string }[];
+  assumptions: string[];
+  limitations: string[];
+}
+
+function DesignView({ d }: { d: DesignData }) {
+  return (
+    <div>
+      <h3>설계 결과</h3>
+      <div className="banner err" role="note">자동 생성된 초안이에요. 실제 장비에 넣기 전에 반드시 사람이 확인하세요.</div>
+      <h4>명령어(IL)</h4>
+      <pre>{d.il.join("\n")}</pre>
+      <h4>사용한 입출력</h4>
+      <ul>{d.io_used.map((r) => <li key={r.device}>{r.device} · {r.name} {r.desc && `(${r.desc})`}</li>)}</ul>
+      <h4>회로 설명</h4>
+      <ul>{d.explanation.map((x) => <li key={x.rung_id}>{x.text} <small>({x.condition_ids.join(", ")})</small></li>)}</ul>
+      {d.assumptions.length > 0 && <><h4>가정</h4><ul>{d.assumptions.map((a) => <li key={a}>{a}</li>)}</ul></>}
+      {d.limitations.length > 0 && <><h4>제한 사항</h4><ul>{d.limitations.map((a) => <li key={a}>{a}</li>)}</ul></>}
+    </div>
+  );
+}
 
 export default function RunStep({ projectId }: { projectId: string }) {
   const [mode, setMode] = useState<string | null | undefined>(undefined);
@@ -68,6 +93,7 @@ export default function RunStep({ projectId }: { projectId: string }) {
     ? String([...status.events].reverse().find((e) => e.kind === "error")?.data.reason ?? "")
     : "";
   const agentNotes = status?.events.filter((e) => e.kind === "agent_message") ?? [];
+  const design = status?.events.find((e) => e.kind === "design")?.data as DesignData | undefined;
 
   return (
     <Card title="에이전트에게 설계 요청" desc="AI 에이전트가 조건을 분석해요. 새로고침해도 마지막 분석 결과를 다시 볼 수 있어요.">
@@ -98,6 +124,7 @@ export default function RunStep({ projectId }: { projectId: string }) {
             </>
           )}
           {agentNotes.map((e) => <p key={e.created_at + String(e.data.text)}>💬 {String(e.data.text)}</p>)}
+          {design && <DesignView d={design} />}
           <ol>
             {status.events.filter((e) => SHOWN.has(e.kind)).map((e, i) => (
               <li key={i}>{STATE_LABEL[e.state] ?? e.state}</li>

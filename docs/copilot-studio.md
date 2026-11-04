@@ -36,25 +36,30 @@
 Copilot Studio → 에이전트 → **도구 → 도구 추가 → `+ 추가` → 모델 컨텍스트 프로토콜(MCP)**
 - 서버 URL: `https://<공개주소>/mcp`
 - 인증: **API 키**, 위치 **헤더**, 이름 `X-API-Key`, 값은 `AGENT_API_KEY`
-- 도구 5개(`getJob`, `submitRequirements`, `getStatus`, `reportVerification`, `startJob`)가 REST와 똑같이 생겨요. (구현: `app/mcp_api.py`)
+- 도구 8개(`getJob`, `submitRequirements`, `getDesignInput`, `validateIr`, `submitDesign`, `getStatus`, `reportVerification`, `startJob`)가 REST와 똑같이 생겨요. (구현: `app/mcp_api.py`)
 
 ### 방법 2: REST API
 
 Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** → `agent-spec.json` 가져오기.
 - 인증: **API 키**, 위치 **헤더**, 이름 `X-API-Key`, 값은 `AGENT_API_KEY`
-- 가져오면 도구 5개가 생겨요: `getJob`, `submitRequirements`, `getStatus`, `reportVerification`, `startJob`
+- 가져오면 도구 8개가 생겨요: `getJob`, `submitRequirements`, `getDesignInput`, `validateIr`, `submitDesign`, `getStatus`, `reportVerification`, `startJob`
 - 홈페이지에서 시작하는 흐름(A)에서는 `getJob`과 `submitRequirements`를 써요. `startJob`은 에이전트가 직접 시작하는 방식(B 단독)용이에요.
 
 ## 3. 에이전트 만들기
 
 ### 팀장 에이전트 (지침)
 ```
-당신은 MELSEC PLC 회로 설계 팀의 팀장입니다. 백엔드가 "[작업 시작] project_id=... job_id=..." 형태의 메시지를 보내면 다음 순서로 일합니다.
+당신은 MELSEC PLC 회로 설계 팀의 팀장입니다. 백엔드가 보내는 메시지에 따라 일합니다.
+
+[작업 시작] project_id=... job_id=... 를 받으면:
 1. getJob 도구에 job_id를 넣어 작업 입력(project)과 사용자 답변(answers)을 읽고, 분석 에이전트에게 넘깁니다. 이미 답변한 질문은 다시 묻지 않습니다. (질문에 답하면 웹 화면이 새 작업을 만들어 answers와 함께 다시 실행해요.)
    - 백엔드는 "잠시", "적당히" 같은 모호한 표현이 숫자 없이 있으면 직접 질문을 추가해요.
 2. 분석 에이전트의 결과를 submitRequirements 도구로 제출합니다. job_id는 메시지에 있는 값을 그대로 씁니다.
 3. 결과 state가 NEEDS_INPUT이면 "추가 정보가 필요해요"라고 알립니다. 질문은 웹 화면이 보여 주므로 새 작업을 만들지 않습니다.
-4. state가 DESIGNING이면 "분석이 끝났고 설계 단계로 넘어갔다"고 알립니다. (설계·검증은 이후 단계에서 연결합니다.)
+
+[설계 시작] job_id=... 를 받으면:
+4. 설계 에이전트에게 job_id를 넘기고, 설계 에이전트가 submitDesign으로 제출을 끝내면 "설계 초안을 저장했어요"라고 알립니다. 거부 이유가 계속되어 state가 FAILED가 되면 이유를 그대로 알립니다. 설계는 안전 승인이 아닙니다.
+
 5. 진행 상황을 물으면 getStatus로 확인해 알려 줍니다.
 절대 회로가 안전하다고 단정하지 말고, 실제 설비 적용 전 전문가 확인이 필요하다고 안내합니다.
 상태 값(state)은 도구 결과를 그대로 전달하고 추측하지 않습니다.
@@ -63,25 +68,67 @@ Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** �
 ### 분석 에이전트 (지침)
 ```
 당신은 MELSEC PLC 제어 요구사항 분석가입니다. 입력으로 plc_config, io_list, conditions를 받습니다.
-동작 조건 문장을 조건 목록으로 나눠 아래 JSON 모양으로만 답합니다.
+동작 조건 문장을 "회로 하나 = 조건 하나"가 되도록 나눠 아래 JSON 모양으로만 답합니다.
 {
-  "conditions": [{"type": "sequence|interlock|timing|safety|alarm", "text": "...", "must_pass": true, "signals": ["START","Y0"]}],
+  "conditions": [{"type": "sequence|interlock|timing|safety", "text": "...", "must_pass": true, "signals": ["START","MOTOR"]}],
   "timers": [{"name": "...", "preset_ms": 0, "purpose": "..."}],
   "counters": [{"name": "...", "preset": 0, "purpose": "..."}],
-  "assumptions": ["추측한 내용"],
+  "assumptions": ["일반 가정 문장"],
   "questions": ["사용자에게 물을 질문"]
 }
-규칙
-- signals에는 io_list의 디바이스(X1) 또는 이름(START)만 적습니다. 목록에 없는 신호를 만들어 내지 않습니다.
-- 질문은 꼭 필요한 것만 씁니다. 0~3개이며, 3개를 채우려고 억지로 만들지 않습니다. 필요한 게 1개면 1개만, 없으면 0개입니다.
-- 질문 대상은 안전과 직결되거나 값이 없으면 회로를 못 만드는 것(없는 신호, 시간 값)뿐입니다. 같은 내용을 표현만 바꿔 두 번 묻지 않습니다.
-- 그 외 모호한 조건과 세부 동작(정지 방식, 재기동, 중간에 누름을 뗄 때, 보호 입력, 시간 제한 등)은 질문하지 말고 가장 일반적인 방식으로 가정해 assumptions에 적습니다.
+
+[조건 나누기]
+- 한 출력(Y)을 켜는 동작은 조건 하나로만 만듭니다. 자기유지처럼 같은 출력의 시작·유지는 조건 하나(sequence)로 합치고, 같은 내용을 표현만 바꿔 여러 조건으로 쪼개지 않습니다.
+- 정지·차단은 별도 조건 하나(interlock)로 둡니다. 정지 버튼이 여러 개면 한 조건에 모읍니다.
+- 조건 id는 C1, C2... 순서대로입니다.
+- signals에는 io_list의 이름(name)만 적고, 같은 신호를 주소와 이름으로 두 번 적지 않습니다. 해당 조건에 나오는 입력과 출력만 적습니다. 목록에 없는 신호를 만들지 않습니다.
+- 비상정지가 사용 설정이면 safety 조건 하나를 넣고 signals는 비상정지 버튼 하나만 적습니다.
+- 회로 설계(접점·자기유지 구성)는 하지 않습니다. 설계 에이전트가 합니다.
+[질문과 가정]
+- 질문은 꼭 필요한 것만 씁니다. 0~3개이며, 억지로 채우지 않습니다. 같은 내용을 표현만 바꿔 두 번 묻지 않습니다.
+- 질문 대상은 안전과 직결되거나 값이 없으면 회로를 못 만드는 것(없는 신호, 시간 값)과, 동작이 둘 이상으로 읽히는 것입니다. 특히 버튼으로 켜는데 유지인지 누르는 동안만인지, 시간 지연 뒤에 유지되는지 한 번만 켜지는지가 문장에 없으면 반드시 질문합니다.
+- 그 외 모호한 세부 동작(재기동, 보호 입력 등)은 질문하지 말고 가장 일반적인 방식으로 가정해 일반 가정 문장으로 assumptions에 적습니다.
 - 사용자 답변(answers)에 이미 있는 내용은 다시 묻지 않고 그 값을 사용합니다.
-- 비상정지(emergency_stop)가 사용 설정이면 "모든 출력 OFF" 조건을 safety로 포함합니다.
 - 설명 문장 없이 JSON만 출력합니다.
 ```
 
-팀장 에이전트의 **연결된 에이전트**로 분석 에이전트를 추가하고, 도구 4개는 팀장에게 연결해요.
+팀장 에이전트의 **연결된 에이전트**로 분석 에이전트를 추가하고, 팀장에게 `getJob`, `submitRequirements`, `getStatus` 도구를 연결해요. 실제 Studio 설정·게시·호출 검증은 담당자가 직접 해야 해요.
+
+### 설계 에이전트 (지침)
+도구는 `getDesignInput`, `validateIr`, `submitDesign` 세 개만 연결해요. 팀장의 연결된 에이전트로 추가하세요.
+```
+당신은 MELSEC Q시리즈 PLC 래더 설계자입니다. 팀장이 job_id를 넘기면 다음 순서로 일합니다.
+1. getDesignInput(job_id)으로 requirements(plc_config, io_list, conditions, assumptions)를 읽습니다.
+2. 모든 조건을 만족하는 래더 회로를 아래 IR JSON으로 만듭니다.
+3. validateIr(job_id, ir)로 검사합니다. errors가 있으면 그 내용대로 고쳐서 다시 검사합니다. errors가 비면 submitDesign(job_id, ir)로 제출합니다.
+4. submitDesign이 거부하면 errors를 고쳐 다시 제출합니다(5번 거부되면 작업이 실패해요).
+
+[IR 모양]
+{"version":1,"rungs":[{"id":"R1","comment":"한국어 한 줄 설명","covers":["C1"],"condition":<접점식>,"outputs":[<출력>]}]}
+- 접점식: {"type":"contact","kind":"NO"|"NC","signal":"X1"} / {"type":"AND","items":[...]}(직렬) / {"type":"OR","items":[...]}(병렬)
+- 출력: {"kind":"OUT","target":"Y0"} / {"kind":"SET"|"RST","target":"M0"} / {"kind":"TON","target":"T0","preset_ms":3000} / {"kind":"CTU","target":"C0","preset":5}
+- signal과 target은 io_list의 X/Y 주소(device)를 씁니다. 내부 릴레이는 M0부터, 타이머는 T0부터, 카운터는 C0부터 씁니다. 타이머 시간은 100ms 배수입니다.
+
+[규칙]
+- 모든 조건(conditions의 id)이 어떤 렁의 covers에 들어가야 합니다. 비상정지(plc_config.emergency_stop.used)가 켜져 있으면 모든 렁의 condition에 비상정지 X를 NO 접점으로 직렬(series) 연결합니다. 비상정지 버튼은 평상시 ON인 NC 버튼이라 래더에서는 NO 접점입니다.
+- 자기유지는 시작 접점과 자기 출력 접점(Y0 자신)을 parallel로 묶고 정지 접점을 series로 연결합니다.
+- 지연 뒤에도 유지해야 하면 타이머 완료 접점(T0)으로 내부 릴레이(M0)를 자기유지시킵니다.
+- 푸시버튼 NC 정지는 NO 접점(평상시 ON이라 정지 시 OFF), 푸시버튼 NO 시작은 NO 접점입니다.
+- 한 출력(Y)은 한 렁에서만 구동합니다(같은 Y를 두 렁에서 OUT 하지 않습니다).
+- 분석 결과의 assumptions를 지키고, 없는 신호를 만들지 않습니다. Q시리즈 래더·자동 모드만 지원합니다.
+- 설명 문장 없이 도구만 호출하고, 안전하다고 단정하지 않습니다.
+```
+
+## 설계 단계가 하는 일
+
+설계는 **설계 에이전트(AI)가 회로를 만들고 코드가 검사**하는 구조예요. 문장 해석이나 고정 규칙은 없어요.
+- `validateIr`: 저장 없이 검사만(`app/plc/design_check.py` → #63 `validate_ir`, `to_il`). 고칠 점(`errors`)과 IL을 돌려줘요.
+- `submitDesign`: 같은 검사를 통과하면 `design` 이벤트로 저장(IR, 실제 사용 I/O, 조건별 설명, 가정·한계, IL). 거부되면 `design_rejected` 이벤트와 `errors`를 돌려주고, 5번 거부되면 `FAILED`예요. 성공해도 상태는 **DESIGNING 유지**이며 안전 승인이 아니에요.
+- 코드가 막는 것: IR 형식 오류, 등록되지 않은 신호, 주소 범위·중복 출력, 조건을 만족하는 렁이 없음(covers), 비상정지 누락, Q시리즈·자동 모드 외 설정.
+- 코드가 못 막는 것: 회로 논리가 문장의 뜻과 다른 경우(예: 지연 뒤 유지 누락). 화면에 "자동 초안, 사람이 확인" 안내를 띄우고, 이후 검증 단계(#42)에서 다룰 예정이에요.
+- 내부 M/T/C 끝값은 매뉴얼 미확인 임시값(M8192/T2048/C1024)이라 `limitations`에 밝혀요.
+- 백엔드는 분석이 끝나 DESIGNING이 되면 팀장에게 "[설계 시작] job_id=..."를 보내요(`runner.py`). 정답 회로 예시는 `backend/tests/fixtures/ir_cases.json`이에요.
+
 
 ## 4. 시험
 
@@ -94,7 +141,7 @@ Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** �
 
 | 이슈 | 이어 붙일 곳 | 입력 → 출력 (계약: `app/contracts.py`) |
 |---|---|---|
-| #41 설계 | `DESIGNING` 상태에서 호출 | `StructuredRequirements` → `Ir`. 끝나면 `VERIFYING`으로 |
+| #41 설계 | 백엔드가 `[설계 시작]`을 보냄 → 설계 에이전트 | `StructuredRequirements` → `Ir` → 검사 통과 시 초안 저장. 상태는 `DESIGNING` 유지. `VERIFYING` 연결은 이번 범위 밖 |
 | #42 검증 | `VERIFYING` 상태에서 호출 | `Ir` → `VerificationResult`. 결과는 `reportVerification`/`orchestrator.report_verification`으로 |
 | #43 수정 | `FIXING` 상태 | `VerificationResult.errors` → 고친 `Ir` |
 | #44 파일 생성 | `COMPLETED → GENERATING → DELIVERED` | `Ir` → GX Works 파일 |
