@@ -22,11 +22,6 @@
 main { min-width: 0; }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; margin-bottom: 18px; box-shadow: var(--shadow); }
-.adv-box { margin-bottom: 18px; border: 1.5px solid var(--primary); border-radius: var(--radius); overflow: hidden; }
-.adv-box .card { border: 0; box-shadow: none; margin-bottom: 0; border-radius: 0; }
-.adv-box .adv-btn { display: block; width: 100%; margin: 0; padding: 14px; font-size: 15px; font-weight: 600; border: 0; border-radius: 0; background: var(--primary-soft); color: var(--primary); text-align: center; }
-.adv-box.open .adv-btn { border-bottom: 1.5px solid var(--primary); }
-.adv-box .adv-btn:hover { background: var(--primary-soft); filter: brightness(0.97); }
 .card-head h2 { margin: 0; font-size: 17px; letter-spacing: -0.01em; }
 .card-head p { margin: 4px 0 16px; font-size: 13px; color: var(--muted); }
 
@@ -101,3 +96,7 @@ select:disabled { background: var(--bg); color: var(--muted); }
 .guide ul { margin: 10px 0 0; padding-left: 18px; font-size: 13px; color: var(--text); display: flex; flex-direction: column; gap: 6px; }
 .guide .chips { margin-top: 10px; }
 .guide .chip { text-align: left; }
+.adv-box { margin-bottom: 18px; }
+.adv-box .adv-btn { display: block; width: 100%; margin: 0; padding: 14px; font-size: 15px; font-weight: 600; border: 0; border-radius: var(--radius); background: var(--primary-soft); color: var(--primary); text-align: center; }
+.adv-box .adv-btn:hover { background: var(--primary-soft); filter: brightness(0.97); }
+.adv-box.open .adv-btn { margin-bottom: 14px; }
