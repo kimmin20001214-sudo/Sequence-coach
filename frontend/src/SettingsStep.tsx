@@ -66,6 +66,9 @@ export default function SettingsStep({ cfg, setCfg, conditions, setConditions, r
               {Object.keys(SPEC).map((s) => <option key={s}>{s}</option>)}
             </select>
           </Field>
+          {cfg.series !== "Q" && cfg.series !== "" && (
+            <div className="banner err" role="status">자동 회로 설계는 현재 Q 시리즈만 지원해요.</div>
+          )}
           <Field label="CPU 모델" required error={f.cpu}>
             <select value={cfg.cpu} disabled={!spec} onChange={(e) => update({ cpu: e.target.value })}>
               <option value="">{spec ? "선택하세요" : "시리즈를 먼저 선택"}</option>

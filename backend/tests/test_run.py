@@ -76,6 +76,10 @@ def test_directline_agent_submits_via_tool_api(client, monkeypatch):
         if method == "POST":
             sent.append(body["text"])
             job = db.latest_job(pid)
+            if body["text"].startswith("[설계 시작]"):
+                for _ in range(5):
+                    client.post(f"/agent/jobs/{job['id']}/design", headers=KEY, json={"ir": {"version": 1, "rungs": []}})
+                return {}
             analysis = {"conditions": [{"type": "sequence", "text": "START 누르면 MOTOR ON", "signals": ["X1", "Y0"]}]}
             assert client.post(f"/agent/jobs/{job['id']}/requirements", headers=KEY, json=analysis).status_code == 200
             return {}
@@ -85,7 +89,9 @@ def test_directline_agent_submits_via_tool_api(client, monkeypatch):
     assert client.post(f"/projects/{pid}/run").status_code == 202
     job = db.latest_job(pid)
     assert f"job_id={job['id']}" in sent[0] and f"project_id={pid}" in sent[0]
-    assert job["state"] == "DESIGNING"
+    assert sent[1].startswith("[설계 시작]")
+    kinds = [e["kind"] for e in db.list_events(job["id"])]
+    assert kinds.count("design_rejected") == 5 and job["state"] == "FAILED"
 
 
 def test_get_job_returns_input_for_agent(client, monkeypatch):
@@ -133,7 +139,15 @@ def test_number_makes_condition_not_vague(client, monkeypatch):
 
 def test_agent_unknown_signal_question_then_answer(client, monkeypatch):
     monkeypatch.setenv("COPILOT_DIRECTLINE_SECRET", "s")
+    monkeypatch.setenv("COPILOT_TIMEOUT_SECONDS", "0")
     pid = make_project(client)
+
+    def fake_http(method, url, token=None, body=None):
+        if url.endswith("/conversations"):
+            return {"conversationId": "c1", "token": "t1"}
+        if method == "POST":
+            job = db.latest_job(pid)
+            analysis = {"conditions": [{"type": "sequence", "text": "x", "signals": ["X9"]}]}
 
     def fake_http(method, url, token=None, body=None):
         if url.endswith("/conversations"):
@@ -150,4 +164,4 @@ def test_agent_unknown_signal_question_then_answer(client, monkeypatch):
     q = client.get(f"/projects/{pid}/status").json()
     assert q["state"] == "NEEDS_INPUT" and "X9" in q["questions"][0]
     client.post(f"/projects/{pid}/run", json={"answers": [{"question": q["questions"][0], "answer": "X1이에요"}]})
-    assert client.get(f"/projects/{pid}/status").json()["state"] == "DESIGNING"
+    assert client.get(f"/projects/{pid}/status").json()["state"] == "FAILED"

@@ -6,7 +6,7 @@ AI 판단(분석·설계·검증·수정)은 Copilot Studio 에이전트가 하�
 from .. import db
 from ..contracts import JOB_TRANSITIONS as TRANSITIONS
 from ..schemas import ProjectInput
-from .analyzer import finalize
+from .analyzer import MAX_QUESTIONS, finalize
 from .schemas import LlmAnalysis
 
 ACTIVE_STATES = {"INPUT_VALIDATED", "ANALYZING", "DESIGNING", "VERIFYING", "FIXING", "COMPLETED", "GENERATING"}
@@ -86,3 +86,66 @@ def report_verification(job_id: str, passed: bool) -> dict:
     if job["iteration"] >= job["max_iter"]:
         return _move(job, "ESCALATED", "escalated", {"max_iter": job["max_iter"]})
     return _move(job, "FIXING", "fix_requested", {"iteration": job["iteration"] + 1}, job["iteration"] + 1)
+
+
+MAX_DESIGN_TRIES = 5
+
+
+def _designing_job(job_id: str) -> tuple[dict, list[dict]]:
+    job = db.get_job(job_id)
+    if not job:
+        raise KeyError(job_id)
+    if job["state"] != "DESIGNING":
+        raise InvalidTransition(f"{job['state']} 상태에서는 설계를 받을 수 없어요.")
+    return job, db.list_events(job_id)
+
+
+def _requirements(events: list[dict]):
+    from ..contracts import StructuredRequirements
+
+    found = next((e for e in reversed(events) if e["kind"] == "requirements"), None)
+    return StructuredRequirements.model_validate(found["data"]) if found else None
+
+
+def get_design_input(job_id: str) -> dict:
+    """설계 에이전트가 읽을 분석 결과(조건·I/O·설정)."""
+    job, events = _designing_job(job_id)
+    req = _requirements(events)
+    if req is None:
+        raise InvalidTransition("저장된 분석 결과가 없어요.")
+    return {"job": job, "requirements": req.model_dump()}
+
+
+def check_design_ir(job_id: str, ir: dict) -> tuple[object | None, list[str]]:
+    """저장 없이 회로(IR)만 검사한다. (결과, 고칠 점)을 돌려준다."""
+    from pydantic import ValidationError
+
+    from ..contracts import Ir
+    from ..plc.design_check import check_design
+
+    _, events = _designing_job(job_id)
+    req = _requirements(events)
+    if req is None:
+        return None, ["저장된 분석 결과가 없어요."]
+    try:
+        parsed = Ir.model_validate(ir)
+    except ValidationError as exc:
+        return None, ["[IR_FORMAT] " + ".".join(map(str, i["loc"])) + " " + i["msg"] for i in exc.errors()]
+    return check_design(req, parsed)
+
+
+def submit_design(job_id: str, ir: dict) -> dict:
+    """설계 에이전트의 회로를 검사해 통과하면 저장한다. 거부되면 고칠 점을 돌려주고, 5번 거부되면 FAILED."""
+    design, problems = check_design_ir(job_id, ir)
+    job, events = _designing_job(job_id)
+    if design is not None:
+        data = design.model_dump()
+        db.add_event(job_id, "DESIGNING", "design", data)
+        return {"job": job, "ok": True, "design": data, "errors": []}
+    db.add_event(job_id, "DESIGNING", "design_rejected", {"errors": problems})
+    tries = sum(1 for e in events if e["kind"] == "design_rejected") + 1
+    if tries >= MAX_DESIGN_TRIES:
+        reason = f"설계가 {tries}번 거부됐어요: " + "; ".join(problems[:3])
+        db.add_event(job_id, "DESIGNING", "design_error", {"reason": reason})
+        job = fail_job(job_id, reason)
+    return {"job": job, "ok": False, "design": None, "errors": problems}

@@ -27,7 +27,10 @@ def test_initialize_and_tools_list(client):
     init = rpc(client, "initialize").json()["result"]
     assert init["capabilities"] == {"tools": {}} and init["protocolVersion"]
     tools = rpc(client, "tools/list").json()["result"]["tools"]
-    assert {t["name"] for t in tools} == {"getJob", "submitRequirements", "getStatus", "reportVerification", "startJob"}
+    assert {t["name"] for t in tools} == {
+        "getJob", "submitRequirements", "getStatus", "reportVerification", "startJob",
+        "getDesignInput", "validateIr", "submitDesign",
+    }
 
 
 def test_notification_gets_202(client):
@@ -40,7 +43,7 @@ def test_tools_drive_a_job_to_designing(client):
     job_id = start(client, pid)["job"]["job_id"]
     err, data = call(client, "getJob", {"job_id": job_id})
     assert not err and data["project"]["conditions"]
-    analysis = {"conditions": [{"type": "sequence", "text": "START 누르면 MOTOR ON", "must_pass": True, "signals": ["START", "MOTOR"]}]}
+    analysis = {"conditions": [{"type": "sequence", "text": "START 누르면 MOTOR ON 유지", "must_pass": True, "signals": ["START", "MOTOR"]}]}
     err, data = call(client, "submitRequirements", {"job_id": job_id, "analysis": analysis})
     assert not err and data["state"] == "DESIGNING"
     err, data = call(client, "getStatus", {"project_id": pid})
