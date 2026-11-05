@@ -4,6 +4,9 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: { input: { main: 'index.html', simulator: 'simulator.html' } },
+  },
   server: {
     // 개발 중 /api/* 요청을 백엔드(8000)로 전달한다.
     proxy: {
