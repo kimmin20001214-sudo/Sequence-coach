@@ -1,0 +1,24 @@
+{
+  "fixture": "on_delay",
+  "timer_preset_ms": 5000,
+  "scenarios": [
+    {
+      "condition_id": "C1",
+      "steps": [{"t_ms": 0, "set": {"START": 1}}],
+      "expect": [{"t_ms": 0, "dev": "LAMP", "value": 1}]
+    },
+    {
+      "condition_id": "C2",
+      "steps": [
+        {"t_ms": 0, "set": {"START": 1}},
+        {"t_ms": 5010, "set": {"START": 0}}
+      ],
+      "expect": [
+        {"t_ms": 0, "dev": "MOTOR", "value": 0},
+        {"t_ms": 4990, "dev": "MOTOR", "value": 0},
+        {"t_ms": 5000, "dev": "MOTOR", "value": 1},
+        {"t_ms": 5010, "dev": "MOTOR", "value": 0}
+      ]
+    }
+  ]
+}
