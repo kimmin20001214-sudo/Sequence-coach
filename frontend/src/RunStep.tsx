@@ -12,7 +12,7 @@ const STATE_LABEL: Record<string, string> = {
   COMPLETED: "검증 통과",
   GENERATING: "파일 생성 중",
   DELIVERED: "전달 완료",
-  ESCALATED: "자동 수정 한도 초과 · 사람 확인 필요",
+  ESCALATED: "검증 실패 · 사람 확인 필요",
   FAILED: "실패",
 };
 const FINAL = new Set(["NEEDS_INPUT", "DESIGNING", "COMPLETED", "DELIVERED", "ESCALATED", "FAILED"]);
@@ -24,6 +24,38 @@ interface DesignData {
   explanation: { rung_id: string; condition_ids: string[]; text: string }[];
   assumptions: string[];
   limitations: string[];
+}
+
+interface VerificationData {
+  passed: boolean;
+  conditions: { id: string; text: string; must_pass: boolean; status: "PASS" | "FAIL" | "UNVERIFIED"; message: string; rung_id: string; notes: string[] }[];
+  problems: { message: string; rung_id: string }[];
+  notice: string;
+}
+
+const RESULT_LABEL = { PASS: "✅ 통과", FAIL: "❌ 실패", UNVERIFIED: "⚠️ 검증 못 함" };
+
+function VerificationView({ v }: { v: VerificationData }) {
+  return (
+    <div>
+      <h3>검증 결과</h3>
+      <table>
+        <thead><tr><th>조건</th><th>내용</th><th>결과</th><th>설명</th></tr></thead>
+        <tbody>
+          {v.conditions.map((c) => (
+            <tr key={c.id}>
+              <td>{c.id}</td>
+              <td>{c.text}</td>
+              <td>{RESULT_LABEL[c.status]}</td>
+              <td>{c.message}{c.rung_id && ` (렁 ${c.rung_id})`}{c.notes.map((n) => <div key={n}><small>{n}</small></div>)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {v.problems.length > 0 && <ul>{v.problems.map((p) => <li key={p.message}>{p.message}</li>)}</ul>}
+      <div className="banner err" role="note">{v.notice}</div>
+    </div>
+  );
 }
 
 function DesignView({ d }: { d: DesignData }) {
@@ -95,6 +127,11 @@ export default function RunStep({ projectId }: { projectId: string }) {
   const agentNotes = status?.events.filter((e) => e.kind === "agent_message") ?? [];
   const design = status?.events.find((e) => e.kind === "design")?.data as DesignData | undefined;
 
+  const verification = [...(status?.events ?? [])].reverse().find((e) => e.kind === "verification")?.data as VerificationData | undefined;
+  const escalateReason = status?.state === "ESCALATED"
+    ? String([...status.events].reverse().find((e) => e.kind === "escalated")?.data.reason ?? "")
+    : "";
+
   return (
     <Card title="에이전트에게 설계 요청" desc="AI 에이전트가 조건을 분석해요. 새로고침해도 마지막 분석 결과를 다시 볼 수 있어요.">
       {mode === null && (
@@ -124,6 +161,8 @@ export default function RunStep({ projectId }: { projectId: string }) {
             </>
           )}
           {agentNotes.map((e) => <p key={e.created_at + String(e.data.text)}>💬 {String(e.data.text)}</p>)}
+          {escalateReason && <div className="banner err" role="alert">{escalateReason}</div>}
+          {verification && <VerificationView v={verification} />}
           {design && <DesignView d={design} />}
           <ol>
             {status.events.filter((e) => SHOWN.has(e.kind)).map((e, i) => (
