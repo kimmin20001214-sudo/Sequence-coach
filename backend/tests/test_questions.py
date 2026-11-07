@@ -59,3 +59,10 @@ def test_invalid_check_is_dropped_with_assumption():
     assert req.conditions[0].check is None
     assert any('NOPE' in x for x in req.assumptions)
 
+
+
+def test_estop_condition_written_by_name_is_not_duplicated():
+    a = LlmAnalysis(conditions=[{'type': 'safety', 'text': 'x', 'must_pass': True, 'signals': ['EMG']}])
+    req = analyzer.finalize(project(), a)
+    assert len(req.conditions) == 1
+
