@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from ..contracts import Ir, StructuredRequirements, VerificationIssue, VerificationResult
 from ..spec import get_series
 from .auto_check import auto_check
+from .checks import build_scenarios
 from .design_check import TEMPORARY_LIMITS
 from .rules import validate_ir
 from .scenario import Scenario
@@ -86,24 +87,49 @@ def verify(
                         if expected.t_ms % SCAN_MS:
                             raise ValueError(f"기대 시각은 {SCAN_MS}ms 스캔 간격의 배수여야 해요.")
                         expected_devices.append(signals.resolve(expected.dev))
-                    end = max([s.t_ms for s in scenario.steps] + [e.t_ms for e in scenario.expect])
+                    end = max([s.t_ms for s in scenario.steps] + [e.t_ms for e in scenario.expect]
+                              + ([SCAN_MS * 4] if scenario.exclusive or scenario.follow else []))
+                    exclusive = [[signals.resolve(d) for d in pair] for pair in scenario.exclusive]
+                    follow = [[signals.resolve(d) for d in pair] for pair in scenario.follow]
                     trace = run(
                         ir, [s.model_dump() for s in scenario.steps], io_list=req.io_list,
                         until_ms=end, scan_ms=SCAN_MS,
                     )
-                    if any(dev not in trace[0]["state"] for dev in expected_devices):
+                    known_devs = trace[0]["state"]
+                    if any(dev not in known_devs for dev in expected_devices + sum(exclusive + follow, [])):
                         raise ValueError("회로에 정의되지 않은 내부 신호의 기대값은 검사할 수 없어요.")
                 except ValueError as exc:
                     unavailable(f"조건 {condition.id} 검사 불가: {exc}")
                     continue
+                for first, second in exclusive:
+                    bad = next((rec["t_ms"] for rec in trace if rec["state"][first] and rec["state"][second]), None)
+                    if bad is None:
+                        summaries.append(f"{first}·{second} 동시 ON 없음")
+                    else:
+                        issues.append(VerificationIssue(
+                            code="UNMET_CONDITION", condition_id=condition.id,
+                            message=f"조건 {condition.id} 실패 — {first}와 {second}가 동시에 켜졌어요 (시각 {bad}ms)",
+                            rung_id=_producer(ir, signals, second),
+                        ))
+                for source, target in follow:
+                    bad = next((
+                        trace[i]["t_ms"] for i in range(2, len(trace))
+                        if trace[i]["state"][source] == trace[i - 1]["state"][source] == trace[i - 2]["state"][source]
+                        and trace[i]["state"][target] != trace[i]["state"][source]
+                    ), None)
+                    if bad is None:
+                        summaries.append(f"{target}가 {source}와 항상 같음")
+                    else:
+                        issues.append(VerificationIssue(
+                            code="UNMET_CONDITION", condition_id=condition.id,
+                            message=f"조건 {condition.id} 실패 — {target}가 {source}와 다르게 동작해요 (시각 {bad}ms)",
+                            rung_id=_producer(ir, signals, target),
+                        ))
                 for expected, dev in zip(scenario.expect, expected_devices):
                     actual = int(trace[expected.t_ms // SCAN_MS]["state"][dev])
                     detail = f"{dev}: 기대값 {int(expected.value)}, 실제값 {actual}, 시각 {expected.t_ms}ms"
                     if actual != expected.value:
-                        producer = next((
-                            rung.id for rung in ir.rungs
-                            if any(signals.resolve(output.target) == dev for output in rung.outputs)
-                        ), "")
+                        producer = _producer(ir, signals, dev)
                         issues.append(VerificationIssue(
                             code="UNMET_CONDITION",
                             message=f"조건 {condition.id} 실패 — {detail}",
@@ -128,6 +154,34 @@ def verify(
             ))
         warnings.extend(_coverage_gaps(req, scenarios, signals))
     return VerificationResult(passed=not errors, errors=errors, warnings=warnings)
+
+
+def _producer(ir: Ir, signals: Signals, dev: str) -> str:
+    return next((
+        rung.id for rung in ir.rungs
+        if any(signals.resolve(output.target) == dev for output in rung.outputs)
+    ), "")
+
+
+def verify_with_checks(
+    req: StructuredRequirements, ir: Ir, scenarios: list[dict] | None = None,
+    **kwargs,
+) -> VerificationResult:
+    """조건의 check(시험 틀)에서 대본을 만들어 손으로 쓴 시나리오와 함께 판정한다."""
+    generated, problems = build_scenarios(req)
+    result = verify(req, ir, list(scenarios or []) + generated, **kwargs)
+    by_id = {c.id: c for c in req.conditions}
+    for cid, message in problems:
+        issue = VerificationIssue(code="INVALID_CHECK", condition_id=cid, message=message)
+        (result.errors if by_id[cid].must_pass else result.warnings).append(issue)
+    for condition in req.conditions:
+        if condition.check and condition.check.pattern == "custom":
+            result.warnings.append(VerificationIssue(
+                code="CUSTOM_CHECK_LOW_CONFIDENCE", condition_id=condition.id,
+                message=f"조건 {condition.id}는 정해진 시험 틀이 아니라 직접 쓴 대본이라 검증 신뢰도가 낮아요.",
+            ))
+    result.passed = not result.errors
+    return result
 
 
 def _coverage_gaps(req: StructuredRequirements, scenarios: list[dict], signals: Signals | None) -> list[VerificationIssue]:
