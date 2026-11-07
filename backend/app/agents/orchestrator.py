@@ -89,6 +89,55 @@ def report_verification(job_id: str, passed: bool) -> dict:
 
 
 MAX_DESIGN_TRIES = 5
+FIX_AVAILABLE = False  # 자동 수정(#43)이 생기면 True로 바꾼다
+VERIFY_NOTICE = "개발용 모의 실행 기준이에요. GX Simulator·실제 PLC 검증이 아니며, 실제 설비 적용 전 전문가 확인이 필요해요."
+NOT_PROVEN = {"UNVERIFIABLE", "INVALID_CHECK"}
+
+
+def _condition_rows(req, result) -> tuple[list[dict], list[dict]]:
+    """조건별 결과표와, 조건에 속하지 않는 문제 목록을 만든다."""
+    rows = []
+    for c in req.conditions:
+        errs = [e for e in result.errors if e.condition_id == c.id]
+        notes = [w.message for w in result.warnings if w.condition_id == c.id and w.code in {"COVERAGE_GAP", "CUSTOM_CHECK_LOW_CONFIDENCE"}]
+        passed = any(w.code == "CONDITION_PASSED" and w.condition_id == c.id for w in result.warnings)
+        if errs and all(e.code in NOT_PROVEN for e in errs):
+            status, message = "UNVERIFIED", errs[0].message
+        elif errs:
+            status, message = "FAIL", errs[0].message
+        elif passed:
+            status, message = "PASS", ""
+        else:
+            status, message = "UNVERIFIED", "이 조건은 시험 대본이 없어 검증하지 못했어요."
+        rung = next((e.rung_id for e in errs if e.rung_id), "")
+        rows.append({"id": c.id, "text": c.text, "must_pass": c.must_pass, "status": status,
+                     "message": message, "rung_id": rung, "notes": notes})
+    extra = [{"message": e.message, "rung_id": e.rung_id} for e in result.errors
+             if not any(e.condition_id == c.id for c in req.conditions)]
+    return rows, extra
+
+
+def run_verification(job_id: str) -> dict:
+    """저장된 설계를 조건의 check로 판정한다. 통과하면 COMPLETED, 아니면 수정 또는 사람 확인으로 넘긴다."""
+    from ..contracts import Ir
+    from ..plc.verify import verify_with_checks
+
+    job, events = _designing_job(job_id)
+    req = _requirements(events)
+    design = next((e["data"] for e in reversed(events) if e["kind"] == "design"), None)
+    job = _move(job, "VERIFYING", "verifying")
+    try:
+        result = verify_with_checks(req, Ir.model_validate(design["ir"]))
+        rows, extra = _condition_rows(req, result)
+    except Exception as exc:  # 판정 코드 오류로 작업이 VERIFYING에 멈추지 않게 한다
+        db.add_event(job_id, "VERIFYING", "verification_error", {"reason": f"검증 중 오류가 났어요. ({type(exc).__name__})"})
+        return _move(job, "ESCALATED", "escalated", {"reason": "verification_error"})
+    db.add_event(job_id, "VERIFYING", "verification", {
+        "passed": result.passed, "conditions": rows, "problems": extra, "notice": VERIFY_NOTICE,
+    })
+    if result.passed or FIX_AVAILABLE:
+        return report_verification(job_id, result.passed)
+    return _move(job, "ESCALATED", "escalated", {"reason": "검증에 실패했어요. 자동 수정은 아직 준비 중이에요."})
 
 
 def _designing_job(job_id: str) -> tuple[dict, list[dict]]:
@@ -141,7 +190,7 @@ def submit_design(job_id: str, ir: dict) -> dict:
     if design is not None:
         data = design.model_dump()
         db.add_event(job_id, "DESIGNING", "design", data)
-        return {"job": job, "ok": True, "design": data, "errors": []}
+        return {"job": run_verification(job_id), "ok": True, "design": data, "errors": []}
     db.add_event(job_id, "DESIGNING", "design_rejected", {"errors": problems})
     tries = sum(1 for e in events if e["kind"] == "design_rejected") + 1
     if tries >= MAX_DESIGN_TRIES:

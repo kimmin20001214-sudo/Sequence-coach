@@ -1,4 +1,4 @@
-"""설계 에이전트가 낸 회로(IR)를 코드가 검사·변환·저장하는지 확인한다."""
+﻿"""설계 에이전트가 낸 회로(IR)를 코드가 검사·변환·저장하는지 확인한다."""
 import json
 from pathlib import Path
 
@@ -78,7 +78,10 @@ def test_submit_design_stores_good_ir_and_rejects_bad(client):
     assert check == {"ok": True, "errors": [], "il": expected}
     good = client.post(f"/agent/jobs/{job_id}/design", headers=KEY, json={"ir": ir}).json()
     assert good["ok"] is True and good["design"]["il"] == expected
-    assert [e["kind"] for e in db.list_events(job_id)][-2:] == ["design_rejected", "design"]
+    kinds = [e["kind"] for e in db.list_events(job_id)]
+    assert "design_rejected" in kinds
+    assert kinds[kinds.index("design"):][:3] == ["design", "verifying", "verification"]
+    assert good["state"] in {"COMPLETED", "ESCALATED"}
 
 
 def test_five_rejections_fail_the_job(client):
@@ -94,3 +97,32 @@ def test_get_design_input_needs_designing(client):
     assert r["requirements"]["conditions"]
     db.update_job(job_id, "FAILED")
     assert client.get(f"/agent/jobs/{job_id}/design-input", headers=KEY).status_code == 409
+
+
+def _design_with_check(client, check):
+    from app.contracts import Check
+    pid = make_project(client)
+    job, _ = orchestrator.start_job(pid)
+    req, ir, _ = load("self_hold")
+    req.conditions[0].check = check
+    req.conditions[1].check = Check(pattern="stop_priority", stop="STOP", outputs=["MOTOR"])
+    db.update_job(job["id"], "DESIGNING")
+    db.add_event(job["id"], "DESIGNING", "requirements", req.model_dump())
+    res = client.post(f"/agent/jobs/{job['id']}/design", headers=KEY, json={"ir": ir}).json()
+    ev = next(e for e in db.list_events(job["id"]) if e["kind"] == "verification")
+    return res, ev["data"]
+
+
+def test_verified_design_completes_with_condition_table(client):
+    from app.contracts import Check
+    res, v = _design_with_check(client, Check(pattern="self_hold", start="START", stop="STOP", output="MOTOR"))
+    assert res["state"] == "COMPLETED" and v["passed"] is True
+    assert v["conditions"][0]["status"] == "PASS" and "전문가" in v["notice"]
+
+
+def test_failed_verification_escalates_with_reason(client):
+    from app.contracts import Check
+    res, v = _design_with_check(client, Check(pattern="on_delay", trigger="START", output="MOTOR", delay_ms=5000))
+    assert res["state"] == "ESCALATED" and v["passed"] is False
+    assert v["conditions"][0]["status"] in {"FAIL", "UNVERIFIED"}
+

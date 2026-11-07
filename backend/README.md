@@ -211,3 +211,7 @@ pytest -q
 
 조건마다 `check`(틀 이름 + 신호 이름)를 붙이면 코드가 시험 대본을 만들어요(`app/plc/checks.py`). 틀: self_hold, stop_priority, on_delay, timed_on, interlock, and_enable, or_enable, indicator, set_reset, custom(낮은 신뢰). 틀이 잘못되면 필수 조건은 INVALID_CHECK 오류, 분석 단계(finalize)에서는 틀을 버리고 가정에 남겨요. 판정은 `verify_with_checks`가 해요.
 
+### 검증 연결 흐름
+
+설계가 저장되면(`submit_design`) 서버가 곧바로 `run_verification`을 실행해요. 상태는 DESIGNING → VERIFYING → 통과 시 COMPLETED, 실패 시 ESCALATED(자동 수정 #43 전까지)로 가요. `verification` 이벤트에 조건별 PASS/FAIL/UNVERIFIED 표와 "모의 실행 기준" 안내가 담겨요. 계약 변경은 없어요.
+
