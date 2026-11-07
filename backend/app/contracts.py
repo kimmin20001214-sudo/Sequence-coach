@@ -5,7 +5,7 @@
 """
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .schemas import IoRow, PlcConfig
 
@@ -28,6 +28,32 @@ JOB_STATES = tuple(JOB_TRANSITIONS)
 # ── 분석 결과: StructuredRequirements (#40 → #41) ───────────────
 ConditionType = Literal["sequence", "interlock", "timing", "safety", "alarm"]
 
+# 시험 틀(check): 분석 에이전트는 틀 이름과 신호 이름만 고르고, 시험 대본은 코드가 만든다. (#42)
+CheckPattern = Literal[
+    "self_hold", "stop_priority", "on_delay", "timed_on", "interlock",
+    "and_enable", "or_enable", "indicator", "set_reset", "custom",
+]
+
+
+class Check(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    pattern: CheckPattern
+    start: str = ""
+    stop: str = ""
+    output: str = ""
+    outputs: list[str] = []
+    trigger: str = ""
+    inputs: list[str] = []
+    delay_ms: int | None = Field(default=None, ge=0)
+    duration_ms: int | None = Field(default=None, ge=0)
+    a: str = ""
+    b: str = ""
+    lamp: str = ""
+    set_input: str = ""
+    reset_input: str = ""
+    steps: list[dict] = []
+    expect: list[dict] = []
+
 
 class Condition(BaseModel):
     id: str = ""
@@ -35,6 +61,7 @@ class Condition(BaseModel):
     text: str
     must_pass: bool = True
     signals: list[str] = []
+    check: Check | None = None
 
 
 class TimerSpec(BaseModel):
