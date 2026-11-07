@@ -3,6 +3,7 @@ from collections.abc import Mapping
 
 from ..contracts import Ir, StructuredRequirements, VerificationIssue, VerificationResult
 from ..spec import get_series
+from .auto_check import auto_check
 from .design_check import TEMPORARY_LIMITS
 from .rules import validate_ir
 from .scenario import Scenario
@@ -117,4 +118,46 @@ def verify(
                 code="CONDITION_PASSED", condition_id=condition.id,
                 message=f"조건 {condition.id}의 모든 시나리오가 통과했어요. " + "; ".join(summaries),
             ))
+    if can_run:
+        try:
+            for required, issue in auto_check(ir, req.io_list, req.conditions):
+                (errors if required else warnings).append(issue)
+        except ValueError as exc:
+            warnings.append(VerificationIssue(
+                code="AUTO_CHECK_SKIPPED", message=f"자동 안전 탐색을 실행하지 못했어요: {exc}",
+            ))
+        warnings.extend(_coverage_gaps(req, scenarios, signals))
     return VerificationResult(passed=not errors, errors=errors, warnings=warnings)
+
+
+def _coverage_gaps(req: StructuredRequirements, scenarios: list[dict], signals: Signals | None) -> list[VerificationIssue]:
+    """조건이 말한 신호를 시나리오가 한 번도 건드리지 않았으면 알려요."""
+    gaps = []
+    for condition in req.conditions:
+        touched: set[str] = set()
+        for raw in scenarios:
+            if not isinstance(raw, dict) or raw.get("condition_id") != condition.id:
+                continue
+            for step in raw.get("steps", []):
+                touched.update(str(k) for k in step.get("set", {}))
+            touched.update(str(e.get("dev")) for e in raw.get("expect", []) if isinstance(e, dict))
+        resolved = set()
+        for token in touched:
+            try:
+                resolved.add(signals.resolve(token))
+            except (ValueError, AttributeError):
+                pass
+        missing = []
+        for name in condition.signals:
+            try:
+                dev = signals.resolve(name)
+            except (ValueError, AttributeError):
+                continue
+            if dev not in resolved:
+                missing.append(name)
+        if missing:
+            gaps.append(VerificationIssue(
+                code="COVERAGE_GAP", condition_id=condition.id,
+                message=f"조건 {condition.id}의 시나리오가 {', '.join(missing)}를 다루지 않아 검증이 부족할 수 있어요.",
+            ))
+    return gaps
