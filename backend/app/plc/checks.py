@@ -1,4 +1,4 @@
-"""조건의 check(시험 틀) → 시험 대본(시나리오) 변환.
+﻿"""조건의 check(시험 틀) → 시험 대본(시나리오) 변환.
 
 분석 에이전트는 틀 이름과 신호 이름만 고르고, 시각·기대값 계산은 이 코드가 한다.
 모르는 신호·잘못된 값은 CheckError로 알려서 에이전트가 고치거나 백엔드가 버리게 한다.
@@ -42,6 +42,23 @@ class _Ctx:
 
     def out(self, name: str, what: str) -> str:
         return self._dev(name, "Y", what)
+
+    def trigger(self, name: str) -> str:
+        """trigger가 출력(Y)이면, 그 출력을 켜는 자기유지 조건의 시작 입력으로 바꿔 쓴다."""
+        try:
+            dev = self.signals.resolve(name) if name and name.strip() else ""
+        except ValueError:
+            dev = ""
+        if dev.startswith("Y"):
+            for cond in self.req.conditions:
+                ck = cond.check
+                if ck and ck.pattern == "self_hold" and ck.start and ck.output:
+                    try:
+                        if self.signals.resolve(ck.output) == dev:
+                            return self.inp(ck.start, "trigger")
+                    except ValueError:
+                        pass
+        return self.inp(name, "trigger")
 
     def nc(self, dev: str) -> bool:
         return "NC" in self.rows[dev].kind.upper()
@@ -137,7 +154,7 @@ def _stop_priority(ctx: _Ctx, cid: str, c: Check) -> list[dict]:
 
 
 def _on_delay(ctx: _Ctx, cid: str, c: Check) -> list[dict]:
-    trig, out = ctx.inp(c.trigger, "trigger"), ctx.out(c.output, "output")
+    trig, out = ctx.trigger(c.trigger), ctx.out(c.output, "output")
     delay = _need_ms(c.delay_ms, "delay_ms", 100)
     on_at = GAP + delay
     t1 = _Timeline(ctx)
@@ -160,7 +177,7 @@ def _on_delay(ctx: _Ctx, cid: str, c: Check) -> list[dict]:
 
 
 def _timed_on(ctx: _Ctx, cid: str, c: Check) -> list[dict]:
-    trig, out = ctx.inp(c.trigger, "trigger"), ctx.out(c.output, "output")
+    trig, out = ctx.trigger(c.trigger), ctx.out(c.output, "output")
     dur = _need_ms(c.duration_ms, "duration_ms", 200)
     tl = _Timeline(ctx)
     tl.press(GAP, trig)
