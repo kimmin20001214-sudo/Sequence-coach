@@ -58,8 +58,9 @@ def finalize(project: ProjectInput, analysis: LlmAnalysis, answers: list[dict] |
     es = project.plc_config.emergency_stop
     if es.used:
         dev = es.device.strip().upper()
-        if not any(c.type == "safety" and dev in {s.strip().upper() for s in c.signals} for c in conditions):
-            es_name = next((r.name for r in project.io_list if r.device.strip().upper() == dev and r.name.strip()), dev)
+        es_name = next((r.name for r in project.io_list if r.device.strip().upper() == dev and r.name.strip()), dev)
+        es_ids = {dev, es_name.strip().upper()}
+        if not any(c.type == "safety" and es_ids & {s.strip().upper() for s in c.signals} for c in conditions):
             outs = [r.name or r.device for r in project.io_list if r.device.strip().upper().startswith("Y")]
             conditions.append(
                 Condition(

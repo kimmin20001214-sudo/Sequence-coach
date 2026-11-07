@@ -81,16 +81,16 @@ Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** �
 - 한 출력(Y)을 켜는 동작은 조건 하나로만 만듭니다. 자기유지처럼 같은 출력의 시작·유지는 조건 하나(sequence)로 합치고, 같은 내용을 표현만 바꿔 여러 조건으로 쪼개지 않습니다.
 - 정지·차단은 별도 조건 하나(interlock)로 둡니다. 정지 버튼이 여러 개면 한 조건에 모읍니다.
 - 조건 id는 C1, C2... 순서대로입니다.
-- signals에는 io_list의 이름(name)만 적고, 같은 신호를 주소와 이름으로 두 번 적지 않습니다. 해당 조건에 나오는 입력과 출력만 적습니다. 목록에 없는 신호를 만들지 않습니다.
-- 비상정지가 사용 설정이면 safety 조건 하나를 넣고 signals는 비상정지 버튼 하나만 적습니다.
+- signals에는 io_list의 이름(name)만 적고, 같은 신호를 주소와 이름으로 두 번 적지 않습니다. 해당 조건에 나오는 입력과 출력만 적고, check에 쓴 신호와 같아야 합니다. 목록에 없는 신호를 만들지 않습니다.
+- 비상정지가 사용 설정이면 safety 조건 하나를 넣고 stop_priority 틀을 씁니다. signals는 비상정지 버튼 하나만 적습니다.
 - 회로 설계(접점·자기유지 구성)는 하지 않습니다. 설계 에이전트가 합니다.
 
 [check(시험 틀)]
-조건마다 check를 하나 붙입니다. 시험 대본은 코드가 만들므로 틀 이름과 신호 이름만 고릅니다. 신호는 io_list의 이름(name)만 씁니다. 입력(X)과 출력(Y)을 바꿔 쓰지 않습니다. 맞는 틀이 없을 때만 custom을 쓰고, 가능하면 쓰지 않습니다.
+조건마다 check를 하나만 붙입니다. 틀 하나로 표현이 안 되면 조건을 나눕니다. 시험 시각과 기대값은 직접 계산하지 않습니다. 대본은 코드가 만들므로 틀 이름과 신호 이름만 고릅니다. 시간 값은 밀리초(ms) 정수입니다. 신호는 io_list의 이름(name)만 씁니다. 입력(X)과 출력(Y)을 바꿔 쓰지 않습니다. 평상시 ON인 NC 버튼(STOP, EMG)도 이름만 적습니다. 누름과 뗌 값은 코드가 처리합니다. 맞는 틀이 없을 때만 custom을 쓰고, 가능하면 쓰지 않습니다. 위 틀 이외의 pattern 이름이나 칸 이름을 만들어 쓰지 않습니다.
 - self_hold: {"pattern":"self_hold","start":"입력","stop":"입력","output":"출력"} 시작 후 유지, 정지 시 꺼짐
 - stop_priority: {"pattern":"stop_priority","stop":"입력","outputs":["출력",...]} 정지·비상정지 입력이면 출력이 꺼짐
-- on_delay: {"pattern":"on_delay","trigger":"입력","output":"출력","delay_ms":3000,"stop":"입력(선택)"} N초 뒤 켜짐 (10의 배수, 100 이상)
-- timed_on: {"pattern":"timed_on","trigger":"입력","output":"출력","duration_ms":2000} 켜진 뒤 N초 후 꺼짐 (200 이상)
+- on_delay: {"pattern":"on_delay","trigger":"입력","output":"출력","delay_ms":3000,"stop":"입력(선택)"} 시작 후 N초가 지나야 켜짐 (10의 배수, 100 이상). trigger는 사람이 누르는 입력(X)만 쓸 수 있습니다. "LAMP가 켜진 지 3초 뒤 MOTOR"처럼 기준이 출력이면, 그 출력을 켜는 시작 입력(예: START)을 trigger로 씁니다.
+- timed_on: {"pattern":"timed_on","trigger":"입력","output":"출력","duration_ms":2000} 켜진 뒤 N초 후 자동으로 꺼짐 (200 이상). trigger는 입력(X)만 씁니다.
 - interlock: {"pattern":"interlock","a":"출력","b":"출력"} 두 출력이 동시에 켜지지 않음
 - and_enable: {"pattern":"and_enable","inputs":["입력","입력"],"output":"출력"} 모두 ON일 때만 켜짐
 - or_enable: {"pattern":"or_enable","inputs":["입력","입력"],"output":"출력"} 하나라도 ON이면 켜짐
