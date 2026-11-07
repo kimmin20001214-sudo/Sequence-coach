@@ -1,0 +1,79 @@
+{
+  "fixture": "estop_interlock",
+  "scenarios": [
+    {
+      "condition_id": "C1",
+      "steps": [
+        {"t_ms": 0, "set": {"EMG": 1, "STOP": 1}},
+        {"t_ms": 20, "set": {"START": 1}},
+        {"t_ms": 50, "set": {"START": 0}}
+      ],
+      "expect": [
+        {"t_ms": 0, "dev": "MOTOR_FWD", "value": 0},
+        {"t_ms": 20, "dev": "MOTOR_FWD", "value": 1},
+        {"t_ms": 100, "dev": "MOTOR_FWD", "value": 1}
+      ]
+    },
+    {
+      "condition_id": "C2",
+      "steps": [
+        {"t_ms": 0, "set": {"EMG": 1, "STOP": 1, "START": 1}},
+        {"t_ms": 20, "set": {"START": 0, "REV_START": 1}}
+      ],
+      "expect": [
+        {"t_ms": 100, "dev": "MOTOR_FWD", "value": 1},
+        {"t_ms": 100, "dev": "MOTOR_REV", "value": 0}
+      ]
+    },
+    {
+      "condition_id": "C3",
+      "steps": [
+        {"t_ms": 0, "set": {"EMG": 1, "STOP": 1, "START": 1}},
+        {"t_ms": 20, "set": {"START": 0}},
+        {"t_ms": 100, "set": {"EMG": 0, "REV_START": 1}}
+      ],
+      "expect": [
+        {"t_ms": 90, "dev": "MOTOR_FWD", "value": 1},
+        {"t_ms": 100, "dev": "MOTOR_FWD", "value": 0},
+        {"t_ms": 100, "dev": "MOTOR_REV", "value": 0},
+        {"t_ms": 150, "dev": "MOTOR_FWD", "value": 0},
+        {"t_ms": 150, "dev": "MOTOR_REV", "value": 0}
+      ]
+    },
+    {
+      "condition_id": "C3",
+      "steps": [
+        {"t_ms": 0, "set": {"EMG": 1, "STOP": 1, "REV_START": 1}},
+        {"t_ms": 100, "set": {"EMG": 0}}
+      ],
+      "expect": [
+        {"t_ms": 90, "dev": "MOTOR_REV", "value": 1},
+        {"t_ms": 100, "dev": "MOTOR_FWD", "value": 0},
+        {"t_ms": 100, "dev": "MOTOR_REV", "value": 0}
+      ]
+    },
+    {
+      "condition_id": "C4",
+      "steps": [
+        {"t_ms": 0, "set": {"EMG": 1, "STOP": 1, "REV_START": 1}},
+        {"t_ms": 50, "set": {"REV_START": 0}}
+      ],
+      "expect": [
+        {"t_ms": 0, "dev": "MOTOR_REV", "value": 1},
+        {"t_ms": 50, "dev": "MOTOR_REV", "value": 0}
+      ]
+    },
+    {
+      "condition_id": "C5",
+      "steps": [
+        {"t_ms": 0, "set": {"EMG": 1, "STOP": 1, "START": 1}},
+        {"t_ms": 100, "set": {"STOP": 0, "REV_START": 1}}
+      ],
+      "expect": [
+        {"t_ms": 90, "dev": "MOTOR_FWD", "value": 1},
+        {"t_ms": 100, "dev": "MOTOR_FWD", "value": 0},
+        {"t_ms": 100, "dev": "MOTOR_REV", "value": 0}
+      ]
+    }
+  ]
+}
