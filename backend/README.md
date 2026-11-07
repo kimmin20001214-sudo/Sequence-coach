@@ -206,3 +206,8 @@ pytest -q
 **모의 실행 통과는 실제 설비 안전을 보장하지 않아요. 실제 설비 적용 전 전문가 확인 필요.**
 보고서는 전달받은 시나리오만 검사하며, 자연어 조건의 의미를 충분히 검사하는지는
 학생이 직접 확인해야 해요. GX Simulator·실제 PLC·CPU 매뉴얼 검증과 구분해요.
+
+## 시험 틀(check)
+
+조건마다 `check`(틀 이름 + 신호 이름)를 붙이면 코드가 시험 대본을 만들어요(`app/plc/checks.py`). 틀: self_hold, stop_priority, on_delay, timed_on, interlock, and_enable, or_enable, indicator, set_reset, custom(낮은 신뢰). 틀이 잘못되면 필수 조건은 INVALID_CHECK 오류, 분석 단계(finalize)에서는 틀을 버리고 가정에 남겨요. 판정은 `verify_with_checks`가 해요.
+

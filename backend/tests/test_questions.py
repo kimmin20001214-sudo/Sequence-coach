@@ -51,3 +51,11 @@ def test_blocking_questions_come_before_agent_questions():
     req = analyzer.finalize(project("START 누르면 잠시 후 MOTOR ON"), analysis(["a", "b", "c", "d"]))
     assert "잠시" in req.questions[0]
     assert req.questions[1:] == ["a", "b"]
+
+
+def test_invalid_check_is_dropped_with_assumption():
+    a = LlmAnalysis(conditions=[{'type': 'sequence', 'text': 'x', 'must_pass': True, 'signals': ['START'], 'check': {'pattern': 'self_hold', 'start': 'NOPE', 'stop': 'START', 'output': 'MOTOR'}}])
+    req = analyzer.finalize(project(), a)
+    assert req.conditions[0].check is None
+    assert any('NOPE' in x for x in req.assumptions)
+

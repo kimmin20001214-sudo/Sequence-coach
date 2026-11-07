@@ -1,7 +1,7 @@
 """에이전트가 API로 보내는 분석 결과 모양. 팀 공통 계약 모델은 app/contracts.py에 있다."""
 from pydantic import BaseModel, Field
 
-from ..contracts import Condition, CounterSpec, StructuredRequirements, TimerSpec  # noqa: F401
+from ..contracts import Check, Condition, CounterSpec, StructuredRequirements, TimerSpec  # noqa: F401
 
 
 class LlmAnalysis(BaseModel):

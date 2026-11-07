@@ -4,8 +4,9 @@ AI가 판단한 내용을 그대로 믿지 않고 코드로 다시 확인한다(
 """
 import re
 
+from ..plc.checks import build_scenarios
 from ..schemas import ProjectInput
-from .schemas import Condition, LlmAnalysis, StructuredRequirements
+from .schemas import Check, Condition, LlmAnalysis, StructuredRequirements
 
 # 시간·정도가 정해지지 않은 모호한 표현. 숫자(예: 3초)가 함께 있으면 모호하지 않다고 본다.
 VAGUE_WORDS = ("잠시", "잠깐", "적당히", "적당한", "조금", "나중에", "빨리", "천천히", "어느 정도", "가끔", "대충", "일정 시간")
@@ -58,10 +59,13 @@ def finalize(project: ProjectInput, analysis: LlmAnalysis, answers: list[dict] |
     if es.used:
         dev = es.device.strip().upper()
         if not any(c.type == "safety" and dev in {s.strip().upper() for s in c.signals} for c in conditions):
+            es_name = next((r.name for r in project.io_list if r.device.strip().upper() == dev and r.name.strip()), dev)
+            outs = [r.name or r.device for r in project.io_list if r.device.strip().upper().startswith("Y")]
             conditions.append(
                 Condition(
                     id=f"C{len(conditions) + 1}", type="safety", must_pass=True, signals=[dev],
                     text=f"비상정지({dev}) 입력 시 모든 출력을 OFF 한다.",
+                    check=Check(pattern="stop_priority", stop=es_name, outputs=outs) if outs else None,
                 )
             )
             assumptions.append("비상정지 조건은 입력 설정에 따라 자동으로 추가했어요.")
@@ -76,7 +80,7 @@ def finalize(project: ProjectInput, analysis: LlmAnalysis, answers: list[dict] |
     kept, skipped = pending[:MAX_QUESTIONS], pending[MAX_QUESTIONS:]
     assumptions += [f"질문을 줄이려고 생략하고 일반적인 방식으로 가정했어요: {q}" for q in skipped]
 
-    return StructuredRequirements(
+    result = StructuredRequirements(
         plc_config=project.plc_config,
         io_list=project.io_list,
         conditions=conditions,
@@ -85,3 +89,15 @@ def finalize(project: ProjectInput, analysis: LlmAnalysis, answers: list[dict] |
         assumptions=assumptions,
         questions=kept,
     )
+    return _drop_invalid_checks(result)
+
+
+def _drop_invalid_checks(req: StructuredRequirements) -> StructuredRequirements:
+    """시험 틀이 잘못된 조건은 틀을 버리고 가정에 남긴다. 사용자에게 되묻지 않는다."""
+    _, problems = build_scenarios(req)
+    for cid, message in problems:
+        for condition in req.conditions:
+            if condition.id == cid:
+                condition.check = None
+        req.assumptions.append(f"{message} 이 조건은 검증 시나리오가 없어 검증되지 않을 수 있어요.")
+    return req

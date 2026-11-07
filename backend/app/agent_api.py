@@ -117,12 +117,31 @@ def submit_design(job_id: str, body: IrBody):
     return {**status_of(result["job"]), "ok": result["ok"], "errors": result["errors"], "design": result["design"]}
 
 
+def _to_nullable(node):
+    """OpenAPI 3.0에는 type "null"이 없어서 선택 항목의 null 후보를 지워요(생략하면 됨)."""
+    if isinstance(node, list):
+        for item in node:
+            _to_nullable(item)
+    elif isinstance(node, dict):
+        options = node.get("anyOf")
+        if options and any(o.get("type") == "null" for o in options):
+            rest = [o for o in options if o.get("type") != "null"]
+            del node["anyOf"]
+            if len(rest) == 1:
+                node.update(rest[0])
+            else:
+                node["anyOf"] = rest
+        for value in node.values():
+            _to_nullable(value)
+
+
 def build_openapi(base_url: str | None = None) -> dict:
     """Copilot Studio에 가져올 수 있도록 /agent 경로만 담은 OpenAPI 3.0 문서."""
     spec = get_openapi(
         title="MELSEC PLC 설계 지원 - 에이전트 도구", version="1.0.0", openapi_version="3.0.3",
         description="Copilot Studio 에이전트가 호출하는 상태 관리·검증 API", routes=router.routes,
     )
+    _to_nullable(spec)
     spec["components"]["securitySchemes"] = {"apiKey": {"type": "apiKey", "in": "header", "name": "X-API-Key"}}
     spec["security"] = [{"apiKey": []}]
     if base_url:
