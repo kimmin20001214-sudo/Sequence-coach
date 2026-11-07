@@ -207,6 +207,21 @@ def test_every_generated_scenario_is_valid_format(pattern):
         assert all(s["t_ms"] % 10 == 0 for s in raw["steps"])
 
 
+def test_output_trigger_is_replaced_by_its_start_input():
+    req = StructuredRequirements.model_validate({
+        "plc_config": PLC, "io_list": IO,
+        "conditions": [
+            {"id": "C1", "type": "sequence", "text": "t", "must_pass": True,
+             "check": {"pattern": "self_hold", "start": "START", "stop": "STOP", "output": "LAMP"}},
+            {"id": "C2", "type": "timing", "text": "t", "must_pass": True,
+             "check": {"pattern": "on_delay", "trigger": "LAMP", "output": "MOTOR", "delay_ms": 3000, "stop": "STOP"}},
+        ],
+        "timers": TIMER,
+    })
+    scenarios, problems = build_scenarios(req)
+    assert not problems and scenarios
+
+
 @pytest.mark.parametrize("name, checks", [
     ("self_hold", {"C1": SELF_HOLD,
                    "C2": {"pattern": "stop_priority", "stop": "STOP", "outputs": ["MOTOR"]}}),
