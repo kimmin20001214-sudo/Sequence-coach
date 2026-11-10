@@ -30,7 +30,7 @@ const STATUS = {
 
 export function Stepper({ steps, current, failed }: { steps: { key: string; label: string }[]; current: number; failed: boolean }) {
   return (
-    <ol className="stepper" aria-label="진행 단계">
+    <ol className="run-stepper" aria-label="진행 단계">
       {steps.map((s, i) => (
         <li key={s.key} className={i < current ? "done" : i === current ? (failed ? "fail" : "now") : ""} aria-current={i === current ? "step" : undefined}>
           <span className="dot">{i < current ? "✓" : failed && i === current ? "✕" : i + 1}</span>
