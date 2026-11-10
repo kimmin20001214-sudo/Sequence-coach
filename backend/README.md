@@ -215,3 +215,7 @@ pytest -q
 
 설계가 저장되면(`submit_design`) 서버가 곧바로 `run_verification`을 실행해요. 상태는 DESIGNING → VERIFYING → 통과 시 COMPLETED, 실패 시 ESCALATED(자동 수정 #43 전까지)로 가요. `verification` 이벤트에 조건별 PASS/FAIL/UNVERIFIED 표와 "모의 실행 기준" 안내가 담겨요. 계약 변경은 없어요.
 
+### 수정 연결 흐름 (#43)
+
+환경변수 `FIX_ENABLED=1`이면 검증 실패가 ESCALATED 대신 FIXING으로 가요(꺼져 있으면 예전처럼 바로 ESCALATED). 백엔드가 수정 에이전트를 부르면(`runner.py`) 에이전트는 `getFixInput`으로 수정 요청을 읽고 `submitFix`로 고친 회로를 제출해요. 서버가 `check_fix`로 전체를 다시 검증해서 통과해야 COMPLETED(`fix_applied` + 새 `design` + `verification` 이벤트)가 돼요. 거부되면 `fix_rejected` 이벤트와 함께 `iteration`이 늘고, `max_iter`에 닿거나 에이전트가 응답하지 않으면 ESCALATED예요. 성공한 수정만 오류 사례 DB에 저장돼요(문장은 코드가 정한 틀). 계약 변경은 없어요. 시험은 `tests/test_fix_flow.py`.
+

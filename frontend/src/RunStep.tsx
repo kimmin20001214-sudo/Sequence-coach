@@ -8,11 +8,11 @@ const STATE_LABEL: Record<string, string> = {
   NEEDS_INPUT: "추가 정보 필요",
   DESIGNING: "설계 에이전트 작업 중 · 완료되면 회로가 아래에 표시돼요",
   VERIFYING: "검증 중",
-  FIXING: "수정 중",
+  FIXING: "자동 수정 중 · 수정 에이전트 작업 중",
   COMPLETED: "검증 통과",
   GENERATING: "파일 생성 중",
   DELIVERED: "전달 완료",
-  ESCALATED: "검증 실패 · 사람 확인 필요",
+  ESCALATED: "자동 수정 실패 또는 검증 실패 · 사람 확인 필요",
   FAILED: "실패",
 };
 const FINAL = new Set(["NEEDS_INPUT", "DESIGNING", "COMPLETED", "DELIVERED", "ESCALATED", "FAILED"]);
@@ -54,6 +54,33 @@ function VerificationView({ v }: { v: VerificationData }) {
       </table>
       {v.problems.length > 0 && <ul>{v.problems.map((p) => <li key={p.message}>{p.message}</li>)}</ul>}
       <div className="banner err" role="note">{v.notice}</div>
+    </div>
+  );
+}
+
+function FixHistory({ events }: { events: JobStatus["events"] }) {
+  return (
+    <div>
+      <h3>자동 수정 기록</h3>
+      <ol>
+        {events.map((e, i) => {
+          const diff = e.data.diff as { added: string[]; removed: string[]; changed: { rung_id: string; summary: string }[] } | undefined;
+          return (
+            <li key={i}>
+              {e.kind === "fix_applied" ? "✅ 수정 성공" : "❌ 수정 거부"}: {String(e.data.reason)}
+              {e.kind === "fix_applied" && e.data.agent_reason ? <div><small>수정 이유: {String(e.data.agent_reason)}</small></div> : null}
+              {diff && (
+                <ul>
+                  {diff.changed.map((c) => <li key={c.rung_id}>렁 {c.rung_id}: {c.summary}</li>)}
+                  {diff.added.map((r) => <li key={"a" + r}>렁 {r} 추가</li>)}
+                  {diff.removed.map((r) => <li key={"r" + r}>렁 {r} 삭제</li>)}
+                </ul>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      <div className="banner err" role="note">수정이 성공했는지는 AI가 아니라 서버가 모든 조건을 다시 모의 실행해서 확인해요.</div>
     </div>
   );
 }
@@ -125,7 +152,8 @@ export default function RunStep({ projectId }: { projectId: string }) {
     ? String([...status.events].reverse().find((e) => e.kind === "error")?.data.reason ?? "")
     : "";
   const agentNotes = status?.events.filter((e) => e.kind === "agent_message") ?? [];
-  const design = status?.events.find((e) => e.kind === "design")?.data as DesignData | undefined;
+  const design = [...(status?.events ?? [])].reverse().find((e) => e.kind === "design")?.data as DesignData | undefined;
+  const fixes = (status?.events ?? []).filter((e) => e.kind === "fix_applied" || e.kind === "fix_rejected");
 
   const verification = [...(status?.events ?? [])].reverse().find((e) => e.kind === "verification")?.data as VerificationData | undefined;
   const escalateReason = status?.state === "ESCALATED"
@@ -162,6 +190,7 @@ export default function RunStep({ projectId }: { projectId: string }) {
           )}
           {agentNotes.map((e) => <p key={e.created_at + String(e.data.text)}>💬 {String(e.data.text)}</p>)}
           {escalateReason && <div className="banner err" role="alert">{escalateReason}</div>}
+          {fixes.length > 0 && <FixHistory events={fixes} />}
           {verification && <VerificationView v={verification} />}
           {design && <DesignView d={design} />}
           <ol>

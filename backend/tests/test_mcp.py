@@ -29,7 +29,7 @@ def test_initialize_and_tools_list(client):
     tools = rpc(client, "tools/list").json()["result"]["tools"]
     assert {t["name"] for t in tools} == {
         "getJob", "submitRequirements", "getStatus", "reportVerification", "startJob",
-        "getDesignInput", "validateIr", "submitDesign",
+        "getDesignInput", "validateIr", "submitDesign", "getFixInput", "submitFix",
     }
 
 

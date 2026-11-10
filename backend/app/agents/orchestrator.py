@@ -3,6 +3,8 @@
 AI 판단(분석·설계·검증·수정)은 Copilot Studio 에이전트가 하고, 이 모듈은 에이전트가 API로 보낸
 결과를 받아 규칙대로 상태를 넘긴다. DESIGNING 이후는 다음 이슈에서 채울 자리(stub)다.
 """
+import os
+
 from .. import db
 from ..contracts import JOB_TRANSITIONS as TRANSITIONS
 from ..schemas import ProjectInput
@@ -57,9 +59,22 @@ def fail_job(job_id: str, reason: str) -> dict:
     job = db.get_job(job_id)
     if not job:
         raise KeyError(job_id)
+    if job["state"] == "FIXING":
+        return give_up_fix(job_id, reason)
     if "FAILED" not in TRANSITIONS[job["state"]]:
         return job
     return _move(job, "FAILED", "error", {"reason": reason})
+
+
+def give_up_fix(job_id: str, reason: str) -> dict:
+    """수정 에이전트가 응답하지 못할 때 FIXING에서 사람 확인(ESCALATED)으로 넘긴다."""
+    job = db.get_job(job_id)
+    if not job:
+        raise KeyError(job_id)
+    if job["state"] != "FIXING":
+        return job
+    job = _move(job, "VERIFYING", "fix_failed", {"reason": reason})
+    return _move(job, "ESCALATED", "escalated", {"reason": reason})
 
 
 def submit_requirements(job_id: str, analysis: LlmAnalysis) -> dict:
@@ -84,12 +99,19 @@ def report_verification(job_id: str, passed: bool) -> dict:
     if passed:
         return _move(job, "COMPLETED", "verified")
     if job["iteration"] >= job["max_iter"]:
-        return _move(job, "ESCALATED", "escalated", {"max_iter": job["max_iter"]})
+        return _move(job, "ESCALATED", "escalated", {
+            "max_iter": job["max_iter"],
+            "reason": f"자동 수정을 {job['max_iter']}번 시도했지만 검증을 통과하지 못했어요. 사람이 확인해 주세요.",
+        })
     return _move(job, "FIXING", "fix_requested", {"iteration": job["iteration"] + 1}, job["iteration"] + 1)
 
 
 MAX_DESIGN_TRIES = 5
-FIX_AVAILABLE = False  # 자동 수정(#43)이 생기면 True로 바꾼다
+def fix_enabled() -> bool:
+    """수정 에이전트(Studio)를 만든 뒤 환경변수 FIX_ENABLED=1로 켠다. 꺼져 있으면 검증 실패는 바로 사람 확인."""
+    return os.environ.get("FIX_ENABLED") == "1"
+
+
 VERIFY_NOTICE = "개발용 모의 실행 기준이에요. GX Simulator·실제 PLC 검증이 아니며, 실제 설비 적용 전 전문가 확인이 필요해요."
 NOT_PROVEN = {"UNVERIFIABLE", "INVALID_CHECK"}
 
@@ -135,7 +157,7 @@ def run_verification(job_id: str) -> dict:
     db.add_event(job_id, "VERIFYING", "verification", {
         "passed": result.passed, "conditions": rows, "problems": extra, "notice": VERIFY_NOTICE,
     })
-    if result.passed or FIX_AVAILABLE:
+    if result.passed or fix_enabled():
         return report_verification(job_id, result.passed)
     return _move(job, "ESCALATED", "escalated", {"reason": "검증에 실패했어요. 자동 수정은 아직 준비 중이에요."})
 
@@ -198,3 +220,106 @@ def submit_design(job_id: str, ir: dict) -> dict:
         db.add_event(job_id, "DESIGNING", "design_error", {"reason": reason})
         job = fail_job(job_id, reason)
     return {"job": job, "ok": False, "design": None, "errors": problems}
+
+
+ROOT_CAUSES = {
+    "UNMET_CONDITION": "회로가 조건이 요구하는 동작을 만들지 못했어요.",
+    "UNVERIFIABLE": "조건을 모의 실행으로 확인할 수 없는 회로였어요.",
+}
+
+
+def _fixing_context(job_id: str):
+    """FIXING 작업의 (job, requirements, 현재 회로, 그 회로의 검증 결과)."""
+    from ..contracts import Ir
+    from ..plc.verify import verify_with_checks
+
+    job = db.get_job(job_id)
+    if not job:
+        raise KeyError(job_id)
+    if job["state"] != "FIXING":
+        raise InvalidTransition(f"{job['state']} 상태에서는 수정 요청을 처리할 수 없어요.")
+    events = db.list_events(job_id)
+    req = _requirements(events)
+    design = next((e["data"] for e in reversed(events) if e["kind"] == "design"), None)
+    if req is None or design is None:
+        raise InvalidTransition("저장된 분석 결과나 설계가 없어요.")
+    ir = Ir.model_validate(design["ir"])
+    return job, req, ir, verify_with_checks(req, ir)
+
+
+def _first_failure(req, result):
+    for e in result.errors:
+        cond = next((c for c in req.conditions if c.id == e.condition_id), None)
+        if cond is not None:
+            return cond, e
+    return None, None
+
+
+def get_fix_input(job_id: str) -> dict:
+    """수정 에이전트가 읽을 수정 요청(실패 조건·지킬 조건·현재 회로·같은 시리즈의 검증된 사례)."""
+    from ..plc.error_knowledge import build_signature, find_similar
+    from ..plc.fix_request import build_fix_request
+
+    job, req, ir, result = _fixing_context(job_id)
+    cases: list[dict] = []
+    cond, err = _first_failure(req, result)
+    if cond is not None:
+        try:
+            cases = find_similar(req.plc_config.series, build_signature(req.plc_config.series, cond.type, err.code), [])
+        except ValueError:
+            cases = []
+    return {"job": job, "fix_request": build_fix_request(req, ir, result, cases)}
+
+
+def _save_knowledge(job: dict, req, before, check, attempt: int) -> None:
+    """검증을 통과한 수정만 저장한다. 문장은 코드가 정한 틀로만 채워 자유 입력이 섞이지 않게 한다."""
+    from ..plc.error_knowledge import build_signature, save_verified_fix
+
+    cond, err = _first_failure(req, before)
+    if cond is None:
+        return
+    series = req.plc_config.series
+    d = check.diff
+    try:
+        save_verified_fix(
+            check, job["project_id"], f"{job['id']}-{attempt - 1}", f"{job['id']}-{attempt}", series,
+            build_signature(series, cond.type, err.code),
+            f"{cond.type} 조건이 {err.code} 오류로 실패했어요.",
+            ROOT_CAUSES.get(err.code, "회로가 조건을 만족하지 못했어요."),
+            f"{err.code} 해결: 렁 {len(d['changed'])}개 변경, {len(d['added'])}개 추가, {len(d['removed'])}개 삭제.",
+            privacy_reviewed=True,
+        )
+    except Exception as exc:  # 사례 저장이 실패해도 수정 결과는 그대로 둔다
+        db.add_event(job["id"], "COMPLETED", "knowledge_skipped", {"reason": type(exc).__name__})
+
+
+def submit_fix(job_id: str, ir: dict, reason: str = "") -> dict:
+    """수정 에이전트의 회로를 코드가 다시 검증한다. 통과하면 COMPLETED, 아니면 다음 시도(또는 ESCALATED)."""
+    from ..plc.design_check import check_design
+    from ..plc.fix_check import check_fix
+
+    job, req, old_ir, before = _fixing_context(job_id)
+    attempt = job["iteration"]
+    check = check_fix(req, old_ir, ir, before)
+    if not check.ok:
+        db.add_event(job_id, "FIXING", "fix_rejected", {"attempt": attempt, "reason": check.reason})
+        job = _move(job, "VERIFYING", "verifying")
+        rows, extra = _condition_rows(req, before)
+        db.add_event(job_id, "VERIFYING", "verification", {
+            "passed": False, "conditions": rows, "problems": extra, "notice": VERIFY_NOTICE,
+        })
+        return {"job": report_verification(job_id, False), "ok": False, "reason": check.reason,
+                "diff": check.diff, "errors": [check.reason]}
+    design, _ = check_design(req, check.new_ir)
+    db.add_event(job_id, "FIXING", "fix_applied", {
+        "attempt": attempt, "reason": check.reason, "agent_reason": reason[:500], "diff": check.diff,
+    })
+    db.add_event(job_id, "FIXING", "design", design.model_dump())
+    job = _move(job, "VERIFYING", "verifying")
+    rows, extra = _condition_rows(req, check.result)
+    db.add_event(job_id, "VERIFYING", "verification", {
+        "passed": True, "conditions": rows, "problems": extra, "notice": VERIFY_NOTICE,
+    })
+    job = report_verification(job_id, True)
+    _save_knowledge(job, req, before, check, attempt)
+    return {"job": job, "ok": True, "reason": check.reason, "diff": check.diff, "errors": []}
