@@ -1,6 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchAgentMode, fetchStatus, runProject, ApiError, type JobStatus } from "./api";
 import { Card } from "./ui";
+import { Conditions, Design, Fixes, Stepper, Summary, type DesignData, type VerificationData } from "./Result";
+
+const STEPS = [
+  { key: "analyze", label: "조건 분석" },
+  { key: "design", label: "회로 설계" },
+  { key: "verify", label: "검증" },
+  { key: "done", label: "완료" },
+];
+const STEP_INDEX: Record<string, number> = {
+  INPUT_VALIDATED: 0, ANALYZING: 0, NEEDS_INPUT: 0,
+  DESIGNING: 1,
+  VERIFYING: 2, FIXING: 2,
+  COMPLETED: 4, GENERATING: 4, DELIVERED: 4,
+  ESCALATED: 2,
+};
 
 const STATE_LABEL: Record<string, string> = {
   INPUT_VALIDATED: "입력 확인됨",
@@ -16,91 +31,6 @@ const STATE_LABEL: Record<string, string> = {
   FAILED: "실패",
 };
 const FINAL = new Set(["NEEDS_INPUT", "COMPLETED", "DELIVERED", "ESCALATED", "FAILED"]);
-const SHOWN = new Set(["created", "started", "requirements", "questions", "error", "verified", "escalated"]);
-
-interface DesignData {
-  il: string[];
-  io_used: { device: string; name: string; kind: string; desc: string }[];
-  explanation: { rung_id: string; condition_ids: string[]; text: string }[];
-  assumptions: string[];
-  limitations: string[];
-}
-
-interface VerificationData {
-  passed: boolean;
-  conditions: { id: string; text: string; must_pass: boolean; status: "PASS" | "FAIL" | "UNVERIFIED"; message: string; rung_id: string; notes: string[] }[];
-  problems: { message: string; rung_id: string }[];
-  notice: string;
-}
-
-const RESULT_LABEL = { PASS: "✅ 통과", FAIL: "❌ 실패", UNVERIFIED: "⚠️ 검증 못 함" };
-
-function VerificationView({ v }: { v: VerificationData }) {
-  return (
-    <div>
-      <h3>검증 결과</h3>
-      <table>
-        <thead><tr><th>조건</th><th>내용</th><th>결과</th><th>설명</th></tr></thead>
-        <tbody>
-          {v.conditions.map((c) => (
-            <tr key={c.id}>
-              <td>{c.id}</td>
-              <td>{c.text}</td>
-              <td>{RESULT_LABEL[c.status]}</td>
-              <td>{c.message}{c.rung_id && ` (렁 ${c.rung_id})`}{c.notes.map((n) => <div key={n}><small>{n}</small></div>)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {v.problems.length > 0 && <ul>{v.problems.map((p) => <li key={p.message}>{p.message}</li>)}</ul>}
-      <div className="banner err" role="note">{v.notice}</div>
-    </div>
-  );
-}
-
-function FixHistory({ events }: { events: JobStatus["events"] }) {
-  return (
-    <div>
-      <h3>자동 수정 기록</h3>
-      <ol>
-        {events.map((e, i) => {
-          const diff = e.data.diff as { added: string[]; removed: string[]; changed: { rung_id: string; summary: string }[] } | undefined;
-          return (
-            <li key={i}>
-              {e.kind === "fix_applied" ? "✅ 수정 성공" : "❌ 수정 거부"}: {String(e.data.reason)}
-              {e.kind === "fix_applied" && e.data.agent_reason ? <div><small>수정 이유: {String(e.data.agent_reason)}</small></div> : null}
-              {diff && (
-                <ul>
-                  {diff.changed.map((c) => <li key={c.rung_id}>렁 {c.rung_id}: {c.summary}</li>)}
-                  {diff.added.map((r) => <li key={"a" + r}>렁 {r} 추가</li>)}
-                  {diff.removed.map((r) => <li key={"r" + r}>렁 {r} 삭제</li>)}
-                </ul>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-      <div className="banner err" role="note">수정이 성공했는지는 AI가 아니라 서버가 모든 조건을 다시 모의 실행해서 확인해요.</div>
-    </div>
-  );
-}
-
-function DesignView({ d }: { d: DesignData }) {
-  return (
-    <div>
-      <h3>설계 결과</h3>
-      <div className="banner err" role="note">자동 생성된 초안이에요. 실제 장비에 넣기 전에 반드시 사람이 확인하세요.</div>
-      <h4>명령어(IL)</h4>
-      <pre>{d.il.join("\n")}</pre>
-      <h4>사용한 입출력</h4>
-      <ul>{d.io_used.map((r) => <li key={r.device}>{r.device} · {r.name} {r.desc && `(${r.desc})`}</li>)}</ul>
-      <h4>회로 설명</h4>
-      <ul>{d.explanation.map((x) => <li key={x.rung_id}>{x.text} <small>({x.condition_ids.join(", ")})</small></li>)}</ul>
-      {d.assumptions.length > 0 && <><h4>가정</h4><ul>{d.assumptions.map((a) => <li key={a}>{a}</li>)}</ul></>}
-      {d.limitations.length > 0 && <><h4>제한 사항</h4><ul>{d.limitations.map((a) => <li key={a}>{a}</li>)}</ul></>}
-    </div>
-  );
-}
 
 export default function RunStep({ projectId }: { projectId: string }) {
   const [mode, setMode] = useState<string | null | undefined>(undefined);
@@ -174,7 +104,10 @@ export default function RunStep({ projectId }: { projectId: string }) {
       {error && <div className="banner err" role="alert">{error}</div>}
       {status && (
         <div aria-live="polite">
-          <h3>상태: {STATE_LABEL[status.state] ?? status.state}</h3>
+          {status.state !== "FAILED" && (
+            <Stepper steps={STEPS} current={STEP_INDEX[status.state] ?? 0} failed={status.state === "ESCALATED" || status.state === "NEEDS_INPUT"} />
+          )}
+          <h3 className="state-line">{STATE_LABEL[status.state] ?? status.state}</h3>
           {failReason && <div className="banner err" role="alert">{failReason}</div>}
           {status.state === "NEEDS_INPUT" && (
             <>
@@ -190,14 +123,10 @@ export default function RunStep({ projectId }: { projectId: string }) {
           )}
           {agentNotes.map((e) => <p key={e.created_at + String(e.data.text)}>💬 {String(e.data.text)}</p>)}
           {escalateReason && <div className="banner err" role="alert">{escalateReason}</div>}
-          {fixes.length > 0 && <FixHistory events={fixes} />}
-          {verification && <VerificationView v={verification} />}
-          {design && <DesignView d={design} />}
-          <ol>
-            {status.events.filter((e) => SHOWN.has(e.kind)).map((e, i) => (
-              <li key={i}>{STATE_LABEL[e.state] ?? e.state}</li>
-            ))}
-          </ol>
+          {verification && <Summary v={verification} fixCount={fixes.length} state={status.state} />}
+          {verification && <Conditions v={verification} />}
+          {fixes.length > 0 && <Fixes events={fixes} />}
+          {design && <Design d={design} v={verification} />}
         </div>
       )}
     </Card>
