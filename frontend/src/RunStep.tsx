@@ -15,7 +15,7 @@ const STATE_LABEL: Record<string, string> = {
   ESCALATED: "자동 수정 실패 또는 검증 실패 · 사람 확인 필요",
   FAILED: "실패",
 };
-const FINAL = new Set(["NEEDS_INPUT", "DESIGNING", "COMPLETED", "DELIVERED", "ESCALATED", "FAILED"]);
+const FINAL = new Set(["NEEDS_INPUT", "COMPLETED", "DELIVERED", "ESCALATED", "FAILED"]);
 const SHOWN = new Set(["created", "started", "requirements", "questions", "error", "verified", "escalated"]);
 
 interface DesignData {
