@@ -114,6 +114,28 @@ def test_runner_calls_fix_agent_until_done(client, monkeypatch):
     assert db.get_job(job_id)["state"] == "COMPLETED" and calls == [False, True, True]
 
 
+def test_run_directline_fix_polls_until_submitted(client, monkeypatch):
+    from app.agents import runner
+
+    job_id, bad, good, _ = broken_job(client)
+    monkeypatch.setenv("COPILOT_DIRECTLINE_SECRET", "s")
+    sent = []
+
+    def fake_http(method, url, token=None, body=None):
+        if url.endswith("/conversations"):
+            return {"conversationId": "c", "token": "t"}
+        if method == "POST":
+            sent.append(body["text"])
+            return {}
+        orchestrator.submit_fix(job_id, good)
+        return {"activities": []}
+
+    monkeypatch.setattr(runner, "_http", fake_http)
+    monkeypatch.setattr(runner.time, "sleep", lambda s: None)
+    runner.run_directline(job_id, fix=True)
+    assert "[수정 시작]" in sent[0] and db.get_job(job_id)["state"] == "COMPLETED"
+
+
 def test_mcp_exposes_fix_tools(client):
     body = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
     names = [t["name"] for t in client.post("/mcp", headers=KEY, json=body).json()["result"]["tools"]]
