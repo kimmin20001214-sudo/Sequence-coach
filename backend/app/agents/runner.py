@@ -86,6 +86,13 @@ def _designed(job_id: str) -> bool:
     return any(e["kind"] == "design" for e in db.list_events(job_id))
 
 
+def _wait_verified(job_id: str, seconds: float = 10.0) -> None:
+    # 설계 제출 직후 검증이 끝나 FIXING/COMPLETED로 바뀔 때까지 잠깐 기다린다
+    deadline = time.monotonic() + seconds
+    while _state(job_id) == "VERIFYING" and time.monotonic() < deadline:
+        time.sleep(0.2)
+
+
 def _finished(job_id: str, design: bool, fix: bool, start_iter: int) -> bool:
     if fix:
         return _state(job_id) != "FIXING" or db.get_job(job_id)["iteration"] != start_iter
@@ -138,6 +145,7 @@ def _run(job_id: str, chosen: str) -> None:
         if chosen == "directline" and _state(job_id) == "DESIGNING":
             run_directline(job_id, design=True)
         for _ in range(db.get_job(job_id)["max_iter"] + 1):
+            _wait_verified(job_id)
             if chosen != "directline" or _state(job_id) != "FIXING":
                 break
             run_directline(job_id, fix=True)
