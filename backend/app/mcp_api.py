@@ -33,6 +33,12 @@ TOOLS = [
     {"name": "submitDesign",
      "description": "회로(IR)를 제출해요. 검사를 통과하면 저장되고, 거부되면 errors를 돌려줘요. 5번 거부되면 작업이 FAILED가 돼요.",
      "inputSchema": _obj({"job_id": _JOB, "ir": _IR}, ["job_id", "ir"])},
+    {"name": "getFixInput",
+     "description": "수정 요청(실패한 조건, 지켜야 할 통과 조건, 현재 회로 ir, 같은 PLC 시리즈의 검증된 참고 사례)을 읽어요. FIXING 상태에서만 가능해요.",
+     "inputSchema": _obj({"job_id": _JOB}, ["job_id"])},
+    {"name": "submitFix",
+     "description": "고친 회로(IR)와 수정 이유를 제출해요. 서버가 모든 조건을 다시 검증해요. ok가 false이면 errors를 보고 다시 고치세요.",
+     "inputSchema": _obj({"job_id": _JOB, "ir": _IR, "reason": {"type": "string", "description": "무엇을 왜 고쳤는지 한두 문장"}}, ["job_id", "ir"])},
     {"name": "getJob", "description": "백엔드가 시작한 작업(job_id)의 상태와 분석할 입력(plc_config, io_list, conditions, answers)을 돌려줘요.",
      "inputSchema": _obj({"job_id": _JOB}, ["job_id"])},
     {"name": "submitRequirements",
@@ -54,6 +60,10 @@ def _call(name: str, a: dict):
         body = agent_api.IrBody(ir=a["ir"])
         fn = agent_api.validate_ir_tool if name == "validateIr" else agent_api.submit_design
         return fn(a["job_id"], body)
+    if name == "getFixInput":
+        return agent_api.get_fix_input(a["job_id"])
+    if name == "submitFix":
+        return agent_api.submit_fix(a["job_id"], agent_api.FixBody(ir=a["ir"], reason=a.get("reason", "")))
     if name == "getJob":
         return agent_api.get_job(a["job_id"])
     if name == "submitRequirements":
@@ -100,7 +110,7 @@ def handle(msg: dict) -> dict | None:
             return _tool_result(id_, str(e.detail), True)
         except (ValidationError, TypeError) as e:
             return _tool_result(id_, f"입력 형식이 올바르지 않아요: {e}", True)
-        if p.get("name") == "submitDesign":
+        if p.get("name") in ("submitDesign", "submitFix"):
             return _tool_result(id_, json.dumps(data, ensure_ascii=False), not data["ok"])
         return _tool_result(id_, json.dumps(data, ensure_ascii=False))
     return _error(id_, -32601, f"지원하지 않는 메서드: {method}")

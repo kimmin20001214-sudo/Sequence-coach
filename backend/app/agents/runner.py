@@ -74,11 +74,27 @@ def _design_message(job_id: str) -> str:
     )
 
 
+def _fix_message(job_id: str) -> str:
+    return (
+        f"[수정 시작] job_id={job_id}\n"
+        "수정 에이전트에게 맡겨 주세요. getFixInput으로 수정 요청을 읽어 회로(IR)를 고치고 "
+        "submitFix로 제출해야 해요. 성공 여부는 서버가 다시 검증해서 정해요."
+    )
+
+
 def _designed(job_id: str) -> bool:
     return any(e["kind"] == "design" for e in db.list_events(job_id))
 
 
-def run_directline(job_id: str, design: bool = False) -> None:
+def _finished(job_id: str, design: bool, fix: bool, start_iter: int) -> bool:
+    if fix:
+        return _state(job_id) != "FIXING" or db.get_job(job_id)["iteration"] != start_iter
+    if design:
+        return _state(job_id) != "DESIGNING" or _designed(job_id)
+    return _state(job_id) != "ANALYZING"
+
+
+def run_directline(job_id: str, design: bool = False, fix: bool = False) -> None:
     base = os.environ.get("COPILOT_DIRECTLINE_URL", DEFAULT_URL).rstrip("/")
     timeout = float(os.environ.get("COPILOT_TIMEOUT_SECONDS", "180"))
     job = db.get_job(job_id)
@@ -86,9 +102,9 @@ def run_directline(job_id: str, design: bool = False) -> None:
     token, cid = conv.get("token") or _initial_token(), conv["conversationId"]
     _http("POST", f"{base}/conversations/{cid}/activities", token, {
         "type": "message", "from": {"id": "plc-backend"},
-        "text": _design_message(job_id) if design else _message(job["project_id"], job_id),
+        "text": _fix_message(job_id) if fix else _design_message(job_id) if design else _message(job["project_id"], job_id),
     })
-    db.add_event(job_id, _state(job_id), "agent_called", {"channel": "directline", "phase": "design" if design else "analysis"})
+    db.add_event(job_id, _state(job_id), "agent_called", {"channel": "directline", "phase": "fix" if fix else "design" if design else "analysis"})
 
     watermark, deadline = "", time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -120,6 +136,10 @@ def _run(job_id: str, chosen: str) -> None:
         (run_directline if chosen == "directline" else run_demo)(job_id)
         if chosen == "directline" and _state(job_id) == "DESIGNING":
             run_directline(job_id, design=True)
+        for _ in range(db.get_job(job_id)["max_iter"] + 1):
+            if chosen != "directline" or _state(job_id) != "FIXING":
+                break
+            run_directline(job_id, fix=True)
     except Exception as e:  # 어떤 실패든 작업이 ANALYZING에 멈추지 않게 기록한다
         reason = f"에이전트 호출에 실패했어요. ({type(e).__name__})"
         if isinstance(e, urllib.error.HTTPError):

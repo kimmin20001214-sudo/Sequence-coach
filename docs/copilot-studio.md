@@ -133,6 +133,34 @@ Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** �
 - 설명 문장 없이 도구만 호출하고, 안전하다고 단정하지 않습니다.
 ```
 
+### 수정 에이전트 (지침)
+도구는 `getFixInput`, `submitFix` 두 개만 연결해요. 팀장의 연결된 에이전트로 추가하세요. 팀장 지침에는 아래 6번을 더하고, 팀장에게도 이 두 도구를 연결해 주세요. 백엔드는 `FIX_ENABLED=1`일 때만 수정을 시작해요.
+```
+[팀장 지침에 추가]
+6. [수정 시작] job_id=... 를 받으면 수정 에이전트에게 job_id를 넘기고, 수정 에이전트가 submitFix를 호출하면 끝납니다. 수정이 성공했는지는 서버가 정하므로 "고쳤어요"라고 단정하지 않고 결과 state만 전달합니다.
+
+[수정 에이전트 지침]
+당신은 MELSEC Q시리즈 PLC 래더 수정 담당입니다. 팀장이 job_id를 넘기면 다음 순서로 일합니다.
+1. getFixInput(job_id)으로 fix_request를 읽습니다. 안에는 failed_conditions(고칠 조건과 실패 이유·렁), protected_conditions(이미 통과해서 깨면 안 되는 조건), problems, ir(현재 회로), emergency_stop, io_list, similar_cases(같은 PLC 시리즈에서 검증된 참고 사례)가 있습니다.
+2. failed_conditions의 message와 rung_id를 보고 ir에서 원인을 찾아 최소한만 고칩니다. protected_conditions는 반드시 계속 통과해야 합니다.
+3. 고친 전체 회로를 submitFix(job_id, ir, reason)로 제출합니다. reason에는 무엇을 왜 고쳤는지 한두 문장만 씁니다. 개인정보나 비밀값은 쓰지 않습니다.
+4. ok가 false이면 errors를 읽고 다시 고쳐 제출합니다(서버가 횟수를 세고, 한도를 넘으면 사람 확인으로 넘겨요).
+
+[규칙]
+- ir은 설계 에이전트와 같은 IR 모양({"version":1,"rungs":[...]})이며 일부가 아니라 전체 회로를 보냅니다.
+- 회로가 바뀌지 않았거나 이전에 통과한 조건이 깨지면 거부됩니다. 비상정지 접점(emergency_stop)과 io_list에 없는 신호는 건드리지 않습니다.
+- similar_cases는 참고만 하고 그대로 복사하지 않습니다.
+- 성공 여부는 서버가 모든 조건을 다시 모의 실행해서 정합니다. "고쳤다", "안전하다"고 단정하지 않고 설명 문장 없이 도구만 호출합니다.
+```
+
+## 수정 단계가 하는 일
+
+- 검증이 실패하면(`FIX_ENABLED=1`) `FIXING`이 되고 백엔드가 팀장에게 "[수정 시작] job_id=..."를 보내요(`runner.py`).
+- `getFixInput`: `fix_request`(`plc/fix_request.py`)와 같은 시리즈의 검증된 사례(`plc/error_knowledge.py`)를 돌려줘요.
+- `submitFix`: `plc/fix_check.py`가 형식·설계 검사 → 변경 여부 → 전체 재검증 → 이전 통과 조건 유지를 확인해요. 통과하면 새 `design`(고친 회로)과 `fix_applied`(변경 내용) 이벤트를 저장하고 `COMPLETED`예요. 거부되면 `fix_rejected` 이벤트와 이유를 돌려주고 `iteration`이 1 늘어요. `max_iter`(기본 5)에 닿으면 `ESCALATED`예요.
+- 수정 에이전트가 제한 시간 안에 응답하지 않으면 `ESCALATED`로 넘어가요.
+- 성공한 수정만 오류 사례 DB에 저장해요. 증상·원인·해결 문장은 코드가 정한 틀(조건 종류, 실패 코드, 변경 개수)로만 채우고 자유 입력은 넣지 않아요.
+
 ## 설계 단계가 하는 일
 
 설계는 **설계 에이전트(AI)가 회로를 만들고 코드가 검사**하는 구조예요. 문장 해석이나 고정 규칙은 없어요.
@@ -157,7 +185,7 @@ Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** �
 |---|---|---|
 | #41 설계 | 백엔드가 `[설계 시작]`을 보냄 → 설계 에이전트 | `StructuredRequirements` → `Ir` → 검사 통과 시 초안 저장. 상태는 `DESIGNING` 유지. `VERIFYING` 연결은 이번 범위 밖 |
 | #42 검증 | `VERIFYING` 상태에서 호출 | `Ir` → `VerificationResult`. 결과는 `reportVerification`/`orchestrator.report_verification`으로 |
-| #43 수정 | `FIXING` 상태 | `VerificationResult.errors` → 고친 `Ir` |
+| #43 수정 | `FIXING` 상태 → 수정 에이전트(`getFixInput`/`submitFix`) | `fix_request` → 고친 `Ir` → 서버가 `check_fix`로 재검증 |
 | #44 파일 생성 | `COMPLETED → GENERATING → DELIVERED` | `Ir` → GX Works 파일 |
 
 분석 결과는 `job_events`의 `requirements` 이벤트(`data`가 `StructuredRequirements`)에 저장돼요. 상태 전이는 `app/agents/orchestrator.py`의 `_move()`만 사용해 주세요.

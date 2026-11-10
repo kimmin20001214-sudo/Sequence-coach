@@ -117,6 +117,25 @@ def submit_design(job_id: str, body: IrBody):
     return {**status_of(result["job"]), "ok": result["ok"], "errors": result["errors"], "design": result["design"]}
 
 
+class FixBody(BaseModel):
+    ir: dict
+    reason: str = ""
+
+
+@router.get("/jobs/{job_id}/fix-input", operation_id="getFixInput", summary="수정 요청 조회")
+def get_fix_input(job_id: str):
+    """FIXING 상태 작업의 수정 요청(실패한 조건, 지켜야 할 통과 조건, 현재 회로, 같은 PLC 시리즈의 검증된 참고 사례)을 돌려줘요."""
+    result = _run(orchestrator.get_fix_input, job_id)
+    return {"job": status_of(result["job"]), "fix_request": result["fix_request"]}
+
+
+@router.post("/jobs/{job_id}/fix", operation_id="submitFix", summary="고친 회로(IR) 제출")
+def submit_fix(job_id: str, body: FixBody):
+    """고친 회로를 보내요. 서버가 모든 조건을 다시 검증하고, 통과해야 COMPLETED가 돼요. 실패하면 이유(errors)를 돌려줘요."""
+    r = _run(orchestrator.submit_fix, job_id, body.ir, body.reason)
+    return {**status_of(r["job"]), "ok": r["ok"], "reason": r["reason"], "diff": r["diff"], "errors": r["errors"]}
+
+
 def _to_nullable(node):
     """OpenAPI 3.0에는 type "null"이 없어서 선택 항목의 null 후보를 지워요(생략하면 됨)."""
     if isinstance(node, list):
