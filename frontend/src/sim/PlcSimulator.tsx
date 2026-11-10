@@ -35,7 +35,7 @@ export default function PlcSimulator({ ir, io, conditions = [], assumptions = []
 
   const [state, setState] = useState(() => advance(newState(), ir, io, physical, 10))
   const stateRef = useRef(state)
-  const [running, setRunning] = useState(true)
+  const [running, setRunning] = useState(false)
   const [speed, setSpeed] = useState(1)
   const [log, setLog] = useState<LogItem[]>([])
   const logRef = useRef(log)
@@ -79,6 +79,7 @@ export default function PlcSimulator({ ir, io, conditions = [], assumptions = []
     setState(s)
     logRef.current = []
     setLog([])
+    setRunning(false)
   }
 
   const press = (d: string, v: boolean) => setActive((a) => (a[d] === v ? a : { ...a, [d]: v }))
@@ -91,8 +92,8 @@ export default function PlcSimulator({ ir, io, conditions = [], assumptions = []
           <strong>{fmt(state.time)}</strong>
         </div>
         <div className="sim-ctl">
-          <button type="button" className="sim-btn" onClick={() => setRunning((r) => !r)}>
-            {running ? '⏸ 일시정지' : '▶ 계속'}
+          <button type="button" className={'sim-btn' + (running ? '' : ' play')} onClick={() => setRunning((r) => !r)}>
+            {running ? '⏸ 일시정지' : state.time <= 10 ? '▶ 시작' : '▶ 계속'}
           </button>
           <button type="button" className="sim-btn" onClick={reset}>↺ 처음으로</button>
           <span className="sim-speed" role="group" aria-label="속도">
@@ -104,6 +105,8 @@ export default function PlcSimulator({ ir, io, conditions = [], assumptions = []
           </span>
         </div>
       </div>
+
+      {!running && <p className="sim-hint">{state.time <= 10 ? '▶ 시작을 누르면 모의 실행이 시작돼요.' : '일시정지 중이에요. ▶ 계속을 누르면 다시 진행돼요.'}</p>}
 
       <div className="sim-grid">
         <section className="sim-card">

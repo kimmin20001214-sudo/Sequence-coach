@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchAgentMode, fetchStatus, runProject, ApiError, type JobStatus } from "./api";
 import { Card } from "./ui";
-import { Conditions, Design, Fixes, Stepper, Summary, type DesignData, type VerificationData } from "./Result";
+import { Conditions, Design, Fixes, Simulation, Stepper, Summary, type DesignData, type VerificationData } from "./Result";
 
 const STEPS = [
   { key: "analyze", label: "조건 분석" },
@@ -32,7 +32,7 @@ const STATE_LABEL: Record<string, string> = {
 };
 const FINAL = new Set(["NEEDS_INPUT", "COMPLETED", "DELIVERED", "ESCALATED", "FAILED"]);
 
-export default function RunStep({ projectId }: { projectId: string }) {
+export default function RunStep({ projectId, page, onPage }: { projectId: string; page: number; onPage: (n: number) => void }) {
   const [mode, setMode] = useState<string | null | undefined>(undefined);
   const [status, setStatus] = useState<JobStatus | null>(null);
   const [error, setError] = useState("");
@@ -90,6 +90,41 @@ export default function RunStep({ projectId }: { projectId: string }) {
     ? String([...status.events].reverse().find((e) => e.kind === "escalated")?.data.reason ?? "")
     : "";
 
+  const nav = (back: [string, number] | null, fwd: [string, number] | null) => (
+    <div className="actions">
+      {back ? <button type="button" className="btn ghost" onClick={() => onPage(back[1])}>{back[0]}</button> : <span />}
+      {fwd ? <button type="button" className="btn primary" onClick={() => onPage(fwd[1])}>{fwd[0]}</button> : <span />}
+    </div>
+  );
+
+  if (page === 3) {
+    return (
+      <Card title="검증 결과" desc="서버가 회로를 모의 실행해서 조건을 하나씩 확인한 결과예요.">
+        {status && verification ? (
+          <>
+            <Summary v={verification} fixCount={fixes.length} state={status.state} />
+            {escalateReason && <div className="banner err" role="alert">{escalateReason}</div>}
+            <Conditions v={verification} />
+            {fixes.length > 0 && <Fixes events={fixes} />}
+            {design && <Design d={design} />}
+          </>
+        ) : (
+          <p className="notice">아직 검증 결과가 없어요. 먼저 이전 단계에서 분석을 실행해 주세요.</p>
+        )}
+        {nav(["← 분석 단계로", 2], design?.ir ? ["모의 실행 →", 4] : null)}
+      </Card>
+    );
+  }
+
+  if (page === 4) {
+    return (
+      <Card title="모의 실행" desc="설계된 회로를 직접 눌러 보며 동작을 확인해요.">
+        {design ? <Simulation d={design} v={verification} /> : <p className="notice">아직 설계 결과가 없어요. 먼저 분석을 실행해 주세요.</p>}
+        {nav(["← 검증 결과", 3], null)}
+      </Card>
+    );
+  }
+
   return (
     <Card title="에이전트에게 설계 요청" desc="AI 에이전트가 조건을 분석해요. 새로고침해도 마지막 분석 결과를 다시 볼 수 있어요.">
       {mode === null && (
@@ -123,12 +158,9 @@ export default function RunStep({ projectId }: { projectId: string }) {
           )}
           {agentNotes.map((e) => <p key={e.created_at + String(e.data.text)}>💬 {String(e.data.text)}</p>)}
           {escalateReason && <div className="banner err" role="alert">{escalateReason}</div>}
-          {verification && <Summary v={verification} fixCount={fixes.length} state={status.state} />}
-          {verification && <Conditions v={verification} />}
-          {fixes.length > 0 && <Fixes events={fixes} />}
-          {design && <Design d={design} v={verification} />}
         </div>
       )}
+      {nav(null, verification && !running ? ["검증 결과 보기 →", 3] : null)}
     </Card>
   );
 }

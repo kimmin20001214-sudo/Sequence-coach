@@ -10,7 +10,7 @@ import RunStep from "./RunStep";
 import { Card } from "./ui";
 import "./App.css";
 
-const STEPS = ["기본 설정", "동작 조건", "완료"];
+const STEPS = ["기본 설정", "동작 조건", "설계 요청", "검증 결과", "모의 실행"];
 const LAST_PROJECT = "plc.lastProject";
 
 export default function App() {
@@ -146,13 +146,15 @@ function Wizard() {
             />
           )}
           {step === 1 && <ConditionsStep conditions={conditions} setConditions={setConditions} error={condError || saveError} saving={saving} onBack={() => go(0)} onSave={save} />}
-          {step === 2 && (
+          {step >= 2 && (
             <>
-              <Card title="저장 완료" desc={`서버에 저장했어요. (프로젝트 ID: ${saved?.id})`}>
-                <details><summary>저장된 내용 보기</summary><pre className="json">{JSON.stringify(saved, null, 2)}</pre></details>
-              </Card>
-              {saved && <RunStep projectId={saved.id} />}
-              <div className="actions"><button type="button" className="btn ghost" onClick={() => go(1)}>← 조건 수정</button><span /></div>
+              {step === 2 && (
+                <Card title="저장 완료" desc={`서버에 저장했어요. (프로젝트 ID: ${saved?.id})`}>
+                  <details><summary>저장된 내용 보기</summary><pre className="json">{JSON.stringify(saved, null, 2)}</pre></details>
+                </Card>
+              )}
+              {saved && <RunStep projectId={saved.id} page={step} onPage={go} />}
+              {step === 2 && <div className="actions"><button type="button" className="btn ghost" onClick={() => go(1)}>← 조건 수정</button><span /></div>}
             </>
           )}
         </main>
