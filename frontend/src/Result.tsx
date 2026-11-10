@@ -130,8 +130,19 @@ function Fold({ title, count, children }: { title: string; count?: number; child
   );
 }
 
-export function Design({ d, v }: { d: DesignData; v?: VerificationData }) {
+export function Simulation({ d, v }: { d: DesignData; v?: VerificationData }) {
   const conditions = (v?.conditions ?? []).map((c) => ({ id: c.id, text: c.text }));
+  if (!d.ir) return <p className="notice">이 설계에는 모의 실행에 필요한 회로 데이터가 없어요.</p>;
+  return (
+    <section className="block">
+      <Suspense fallback={<p className="notice">모의 실행 화면을 불러오는 중…</p>}>
+        <PlcSimulator ir={d.ir} io={d.io_used} conditions={conditions} assumptions={d.assumptions} />
+      </Suspense>
+    </section>
+  );
+}
+
+export function Design({ d }: { d: DesignData }) {
   return (
     <section className="block">
       <h3>설계 결과</h3>
@@ -159,15 +170,6 @@ export function Design({ d, v }: { d: DesignData; v?: VerificationData }) {
           </tbody>
         </table>
       </div>
-
-      {d.ir && (
-        <>
-          <h4>모의 실행</h4>
-          <Suspense fallback={<p className="notice">모의 실행 화면을 불러오는 중…</p>}>
-            <PlcSimulator ir={d.ir} io={d.io_used} conditions={conditions} assumptions={d.assumptions} />
-          </Suspense>
-        </>
-      )}
 
       <div className="folds">
         <Fold title="명령어(IL) 보기"><pre>{d.il.join("\n")}</pre></Fold>
