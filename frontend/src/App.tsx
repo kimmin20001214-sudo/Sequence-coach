@@ -52,7 +52,7 @@ function Wizard() {
 
   // 새로고침해도 마지막으로 저장한 프로젝트와 분석 결과를 다시 보여 준다.
   useEffect(() => {
-    const id = localStorage.getItem(LAST_PROJECT);
+    const id = sessionStorage.getItem(LAST_PROJECT);
     if (!id) return;
     fetchProject(id)
       .then((p) => {
@@ -61,7 +61,7 @@ function Wizard() {
         setSaved(p);
         setStep(2);
       })
-      .catch(() => localStorage.removeItem(LAST_PROJECT));
+      .catch(() => sessionStorage.removeItem(LAST_PROJECT));
   }, []);
 
   const next = () => {
@@ -92,7 +92,7 @@ function Wizard() {
     setSaveError("");
     try {
       const p = await saveProject(out);
-      localStorage.setItem(LAST_PROJECT, p.id);
+      sessionStorage.setItem(LAST_PROJECT, p.id);
       setSaved(p);
       go(2);
     } catch (e) {
