@@ -98,6 +98,7 @@ def run_directline(job_id: str, design: bool = False, fix: bool = False) -> None
     base = os.environ.get("COPILOT_DIRECTLINE_URL", DEFAULT_URL).rstrip("/")
     timeout = float(os.environ.get("COPILOT_TIMEOUT_SECONDS", "180"))
     job = db.get_job(job_id)
+    start_iter = job["iteration"]
     conv = _http("POST", f"{base}/conversations", _initial_token())
     token, cid = conv.get("token") or _initial_token(), conv["conversationId"]
     _http("POST", f"{base}/conversations/{cid}/activities", token, {
@@ -108,7 +109,7 @@ def run_directline(job_id: str, design: bool = False, fix: bool = False) -> None
 
     watermark, deadline = "", time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if (_state(job_id) != "DESIGNING" or _designed(job_id)) if design else _state(job_id) != "ANALYZING":
+        if _finished(job_id, design, fix, start_iter):
             return
         url = f"{base}/conversations/{cid}/activities" + (f"?watermark={watermark}" if watermark else "")
         page = _http("GET", url, token)
