@@ -72,14 +72,16 @@ export function Conditions({ v }: { v: VerificationData }) {
       <ul className="cond-list">
         {v.conditions.map((c) => {
           const s = STATUS[c.status];
+          const low = c.notes.find((n) => n.includes("신뢰도"));
           return (
             <li key={c.id} className={`cond ${s.cls}`}>
               <span className="cond-id">{c.id}</span>
               <div className="cond-body">
                 <div className="cond-text">{c.text}</div>
                 {c.message && <div className="cond-msg">{c.message}{c.rung_id && ` · 렁 ${c.rung_id}`}</div>}
-                {c.notes.map((n) => <div key={n} className="cond-note">{n}</div>)}
+                {c.notes.filter((n) => n !== low).map((n) => <div key={n} className="cond-note">{n}</div>)}
               </div>
+              {low && <span className="pill low" tabIndex={0} data-tip={low}>검증 신뢰도 낮음</span>}
               <span className={`pill ${s.cls}`}><i aria-hidden>{s.icon}</i>{s.label}</span>
             </li>
           );
