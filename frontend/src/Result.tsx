@@ -140,7 +140,7 @@ export function Simulation({ d, v }: { d: DesignData; v?: VerificationData }) {
         <div className="modal-back" onClick={() => setPopup(false)}>
           <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <h3>⚠ 실제 프로그램으로 확인하세요</h3>
-            <p>회로 논리가 맞는지 판별하는 모의 시뮬레이션이에요. GX Works 등 실제 프로그램에서 반드시 다시 확인하세요.</p>
+            <p>회로 논리가 맞는지 판별하는 모의 시뮬레이션이에요.<br />GX Works 등 실제 프로그램에서 반드시 다시 확인하세요.</p>
             <button onClick={() => setPopup(false)}>확인</button>
           </div>
         </div>
