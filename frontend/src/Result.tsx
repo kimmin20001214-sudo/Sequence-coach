@@ -33,7 +33,7 @@ export function Stepper({ steps, current, failed, times }: { steps: { key: strin
     <ol className="run-stepper" aria-label="진행 단계">
       {steps.map((s, i) => (
         <li key={s.key} className={i < current ? "done" : i === current ? (failed ? "fail" : "now") : ""} aria-current={i === current ? "step" : undefined}>
-          <span className="dot">{i < current ? "✓" : failed && i === current ? "✕" : i + 1}</span>
+          <span className="dot">{i < current ? <span className="chk">✓</span> : failed && i === current ? "✕" : i + 1}</span>
           <span className="lbl">{s.label}</span>
           {times?.[i] && <span className="lbl-time">{times[i]}</span>}
         </li>
