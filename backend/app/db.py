@@ -32,6 +32,11 @@ def _connect() -> sqlite3.Connection:
         "id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT NOT NULL, state TEXT NOT NULL, "
         "kind TEXT NOT NULL, data TEXT NOT NULL, created_at TEXT NOT NULL)"
     )
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS artifacts ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, project_id TEXT NOT NULL, type TEXT NOT NULL, "
+        "path TEXT NOT NULL, checksum TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL)"
+    )
     return con
 
 
@@ -87,6 +92,23 @@ def list_events(job_id: str) -> list[dict]:
         {"state": r["state"], "kind": r["kind"], "data": json.loads(r["data"]), "created_at": r["created_at"]}
         for r in rows
     ]
+
+
+def add_artifact(project_id: str, type: str, path: str, checksum: str, status: str) -> dict:
+    """산출물(gx_il, video 등) 경로와 체크섬을 기록한다. status는 호환성·실행 상태(예: unverified)."""
+    row = {"project_id": project_id, "type": type, "path": path, "checksum": checksum, "status": status,
+           "created_at": _now()}
+    with _connect() as con:
+        cur = con.execute(
+            "INSERT INTO artifacts (project_id, type, path, checksum, status, created_at) "
+            "VALUES (:project_id, :type, :path, :checksum, :status, :created_at)", row)
+    return {"id": cur.lastrowid, **row}
+
+
+def list_artifacts(project_id: str) -> list[dict]:
+    with _connect() as con:
+        rows = con.execute("SELECT * FROM artifacts WHERE project_id = ? ORDER BY id", (project_id,)).fetchall()
+    return [dict(r) for r in rows]
 
 
 def update_project_status(project_id: str, status: str) -> None:
