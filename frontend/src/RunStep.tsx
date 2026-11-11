@@ -42,21 +42,32 @@ const TYPICAL: Record<string, string> = {
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-function Elapsed({ events, state }: { events: JobStatus["events"]; state: string }) {
+function useNow(active: boolean) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
+    if (!active) return;
     const t = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(t);
-  }, []);
-  const at = (i: number) => Date.parse(events[i]?.created_at ?? "");
-  const total = Math.max(0, Math.round((now - at(0)) / 1000));
-  const step = Math.max(0, Math.round((now - at(events.length - 1)) / 1000));
-  if (!events.length || Number.isNaN(total)) return null;
-  return (
-    <p className="elapsed" role="status">
-      ⏱ 전체 {mmss(total)} · 이 단계 {mmss(step)}째 — AI가 생각하는 시간이라 기다려야 해요. {TYPICAL[state] ?? ""}
-    </p>
-  );
+  }, [active]);
+  return now;
+}
+
+// 단계 시작·끝 시각은 이벤트 기록에서 찾는다: 분석(처음~조건 정리) → 설계(~설계 제출) → 검증(~검증 끝)
+function stepTimes(events: JobStatus["events"], now: number) {
+  const ms = (e?: { created_at: string }) => (e ? Date.parse(e.created_at) : NaN);
+  const find = (...kinds: string[]) => events.find((e) => kinds.includes(e.kind));
+  const bounds = [ms(events[0]), ms(find("requirements")), ms(find("design")), ms(find("verified", "escalated"))];
+  const label = (i: number) => {
+    const start = bounds[i];
+    if (Number.isNaN(start)) return "";
+    const end = Number.isNaN(bounds[i + 1]) ? now : bounds[i + 1];
+    return mmss(Math.max(0, Math.round((end - start) / 1000)));
+  };
+  const finished = !Number.isNaN(bounds[3]);
+  return {
+    times: [label(0), label(1), label(2), ""],
+    total: finished && !Number.isNaN(bounds[0]) ? mmss(Math.max(0, Math.round((bounds[3] - bounds[0]) / 1000))) : "",
+  };
 }
 
 export default function RunStep({ projectId, page, onPage }: { projectId: string; page: number; onPage: (n: number) => void }) {
@@ -64,6 +75,8 @@ export default function RunStep({ projectId, page, onPage }: { projectId: string
   const [status, setStatus] = useState<JobStatus | null>(null);
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
+  const now = useNow(running);
+  const { times, total } = stepTimes(status?.events ?? [], now);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const timer = useRef<number | undefined>(undefined);
 
@@ -168,10 +181,13 @@ export default function RunStep({ projectId, page, onPage }: { projectId: string
       {status && (
         <div aria-live="polite">
           {status.state !== "FAILED" && (
-            <Stepper steps={STEPS} current={STEP_INDEX[status.state] ?? 0} failed={status.state === "ESCALATED" || status.state === "NEEDS_INPUT"} />
+            <Stepper steps={STEPS} current={STEP_INDEX[status.state] ?? 0} failed={status.state === "ESCALATED" || status.state === "NEEDS_INPUT"} times={times} />
           )}
           <h3 className="state-line">{STATE_LABEL[status.state] ?? status.state}</h3>
-          {running && !FINAL.has(status.state) && <Elapsed events={status.events} state={status.state} />}
+          {running && !FINAL.has(status.state) && (
+            <p className="elapsed" role="status">AI가 생각하는 시간이라 기다려야 해요. {TYPICAL[status.state] ?? ""}</p>
+          )}
+          {total && <p className="elapsed total">⏱ 총 경과 시간 {total}</p>}
           {failReason && <div className="banner err" role="alert">{failReason}</div>}
           {status.state === "NEEDS_INPUT" && (
             <>
