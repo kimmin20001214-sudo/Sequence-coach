@@ -105,9 +105,12 @@ select:disabled { background: var(--bg); color: var(--muted); }
 .run-stepper{list-style:none;display:flex;gap:0;padding:0;margin:16px 0 8px}
 .run-stepper li{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;font-size:13px;color:var(--muted)}
 .run-stepper li+li::before{content:"";position:absolute;top:13px;right:50%;width:100%;height:2px;background:var(--line)}
-.run-stepper li.done+li::before,.run-stepper li.now::before,.run-stepper li.fail::before{background:var(--primary)}
+.run-stepper li+li::after{content:"";position:absolute;top:13px;right:50%;width:100%;height:2px;background:var(--primary);transform:scaleX(0);transform-origin:left;transition:transform .8s ease-in-out}
+.run-stepper li.done+li::after,.run-stepper li.now::after,.run-stepper li.fail::after{transform:scaleX(1)}
 .run-stepper .dot{position:relative;z-index:1;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:2px solid var(--line);font-weight:700;font-size:13px}
-.run-stepper li.done .dot{background:var(--primary);border-color:var(--primary);color:#fff}
+.run-stepper li.done .dot{background:var(--primary);border-color:var(--primary);color:#fff;animation:dot-pop .5s ease-out}
+@keyframes dot-pop{0%{transform:scale(.4);opacity:.3}60%{transform:scale(1.35)}100%{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){.run-stepper li.done .dot{animation:none}.run-stepper li+li::after{transition:none}}
 .run-stepper li.now .dot{border-color:var(--primary);color:var(--primary)}
 .run-stepper li.now .lbl,.run-stepper li.done .lbl{color:var(--text,#111);font-weight:600}
 .run-stepper li.fail .dot{border-color:var(--danger);color:var(--danger)}
