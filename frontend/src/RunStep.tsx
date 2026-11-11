@@ -33,6 +33,32 @@ const STATE_LABEL: Record<string, string> = {
 };
 const FINAL = new Set(["NEEDS_INPUT", "COMPLETED", "DELIVERED", "ESCALATED", "FAILED"]);
 
+const TYPICAL: Record<string, string> = {
+  ANALYZING: "조건 분석은 보통 1분 안팎",
+  DESIGNING: "회로 설계는 보통 30초~1분",
+  VERIFYING: "검증은 몇 초",
+  FIXING: "자동 수정은 보통 1~2분",
+};
+
+const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+function Elapsed({ events, state }: { events: JobStatus["events"]; state: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  const at = (i: number) => Date.parse(events[i]?.created_at ?? "");
+  const total = Math.max(0, Math.round((now - at(0)) / 1000));
+  const step = Math.max(0, Math.round((now - at(events.length - 1)) / 1000));
+  if (!events.length || Number.isNaN(total)) return null;
+  return (
+    <p className="elapsed" role="status">
+      ⏱ 전체 {mmss(total)} · 이 단계 {mmss(step)}째 — AI가 생각하는 시간이라 기다려야 해요. {TYPICAL[state] ?? ""}
+    </p>
+  );
+}
+
 export default function RunStep({ projectId, page, onPage }: { projectId: string; page: number; onPage: (n: number) => void }) {
   const [mode, setMode] = useState<string | null | undefined>(undefined);
   const [status, setStatus] = useState<JobStatus | null>(null);
@@ -145,6 +171,7 @@ export default function RunStep({ projectId, page, onPage }: { projectId: string
             <Stepper steps={STEPS} current={STEP_INDEX[status.state] ?? 0} failed={status.state === "ESCALATED" || status.state === "NEEDS_INPUT"} />
           )}
           <h3 className="state-line">{STATE_LABEL[status.state] ?? status.state}</h3>
+          {running && !FINAL.has(status.state) && <Elapsed events={status.events} state={status.state} />}
           {failReason && <div className="banner err" role="alert">{failReason}</div>}
           {status.state === "NEEDS_INPUT" && (
             <>

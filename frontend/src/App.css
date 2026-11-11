@@ -178,3 +178,5 @@ select:disabled { background: var(--bg); color: var(--muted); }
 .criteria-btns .criteria-btn{margin:0}
 .criteria-scroll{overflow-y:auto;max-height:60vh;padding-right:4px}
 .criteria-top{margin:-4px 0 10px!important;text-align:left}
+
+.elapsed{margin:.4rem 0;color:#555;font-size:.9rem}
