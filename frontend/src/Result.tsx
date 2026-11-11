@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import type { JobStatus } from "./api";
 import type { Ir } from "./sim/engine";
 
@@ -131,10 +131,20 @@ function Fold({ title, count, children }: { title: string; count?: number; child
 }
 
 export function Simulation({ d, v }: { d: DesignData; v?: VerificationData }) {
+  const [popup, setPopup] = useState(true);
   const conditions = (v?.conditions ?? []).map((c) => ({ id: c.id, text: c.text }));
   if (!d.ir) return <p className="notice">이 설계에는 모의 실행에 필요한 회로 데이터가 없어요.</p>;
   return (
     <section className="block">
+      {popup && (
+        <div className="modal-back" onClick={() => setPopup(false)}>
+          <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <h3>⚠ 실제 프로그램으로 확인하세요</h3>
+            <p>회로 논리가 맞는지 판별하는 모의 시뮬레이션이에요.<br /><strong className="warn-line">GX Works 등 실제 프로그램에서 반드시 다시 확인하세요.</strong></p>
+            <button onClick={() => setPopup(false)}>확인</button>
+          </div>
+        </div>
+      )}
       <Suspense fallback={<p className="notice">모의 실행 화면을 불러오는 중…</p>}>
         <PlcSimulator ir={d.ir} io={d.io_used} conditions={conditions} assumptions={d.assumptions} />
       </Suspense>
