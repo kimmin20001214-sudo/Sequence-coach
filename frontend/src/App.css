@@ -183,3 +183,5 @@ select:disabled { background: var(--bg); color: var(--muted); }
 .pill.low{background:#fef9c3;color:#78350f;border:1px solid #facc15;position:relative;cursor:help}
 .pill.low::after{content:attr(data-tip);position:absolute;right:0;bottom:calc(100% + 6px);width:240px;white-space:normal;background:#78350f;color:#fff;font-weight:400;font-size:12px;line-height:1.4;padding:6px 10px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .15s;z-index:5}
 .pill.low:hover::after,.pill.low:focus::after{opacity:1}
+.run-stepper .lbl-time{font-size:16px;font-weight:700;color:var(--primary);font-variant-numeric:tabular-nums}
+.elapsed.total{font-size:18px;font-weight:700;color:#1c7a43}
