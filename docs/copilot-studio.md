@@ -165,7 +165,7 @@ Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** �
 
 설계는 **설계 에이전트(AI)가 회로를 만들고 코드가 검사**하는 구조예요. 문장 해석이나 고정 규칙은 없어요.
 - `validateIr`: 저장 없이 검사만(`app/plc/design_check.py` → #63 `validate_ir`, `to_il`). 고칠 점(`errors`)과 IL을 돌려줘요.
-- `submitDesign`: 같은 검사를 통과하면 `design` 이벤트로 저장(IR, 실제 사용 I/O, 조건별 설명, 가정·한계, IL). 거부되면 `design_rejected` 이벤트와 `errors`를 돌려주고, 5번 거부되면 `FAILED`예요. 성공해도 상태는 **DESIGNING 유지**이며 안전 승인이 아니에요.
+- `submitDesign`: 같은 검사를 통과하면 `design` 이벤트로 저장(IR, 실제 사용 I/O, 조건별 설명, 가정·한계, IL). 거부되면 `design_rejected` 이벤트와 `errors`를 돌려주고, 5번 거부되면 `FAILED`예요. 성공하면 서버가 자동 검증(`VERIFYING`)으로 넘어가요. 설계 저장은 안전 승인이 아니에요.
 - 코드가 막는 것: IR 형식 오류, 등록되지 않은 신호, 주소 범위·중복 출력, 조건을 만족하는 렁이 없음(covers), 비상정지 누락, Q시리즈·자동 모드 외 설정.
 - 코드가 못 막는 것: 회로 논리가 문장의 뜻과 다른 경우(예: 지연 뒤 유지 누락). 화면에 "자동 초안, 사람이 확인" 안내를 띄우고, 이후 검증 단계(#42)에서 다룰 예정이에요.
 - 내부 M/T/C 끝값은 매뉴얼 미확인 임시값(M8192/T2048/C1024)이라 `limitations`에 밝혀요.
@@ -179,14 +179,14 @@ Copilot Studio → 에이전트 → **도구 → 도구 추가 → REST API** �
 3. 기대 결과: 조건이 `C1, C2…`로 나뉘고, I/O에 없는 신호가 있으면 질문이 나오며, 없으면 `DESIGNING`
 4. `GET /projects/<ID>/status`로 단계 기록 확인
 
-## 다음 구현이 이어 붙이는 자리
+## 단계별 연결 현황
 
-| 이슈 | 이어 붙일 곳 | 입력 → 출력 (계약: `app/contracts.py`) |
-|---|---|---|
-| #41 설계 | 백엔드가 `[설계 시작]`을 보냄 → 설계 에이전트 | `StructuredRequirements` → `Ir` → 검사 통과 시 초안 저장. 상태는 `DESIGNING` 유지. `VERIFYING` 연결은 이번 범위 밖 |
-| #42 검증 | `VERIFYING` 상태에서 호출 | `Ir` → `VerificationResult`. 결과는 `reportVerification`/`orchestrator.report_verification`으로 |
-| #43 수정 | `FIXING` 상태 → 수정 에이전트(`getFixInput`/`submitFix`) | `fix_request` → 고친 `Ir` → 서버가 `check_fix`로 재검증 |
-| #44 파일 생성 | `COMPLETED → GENERATING → DELIVERED` | `Ir` → GX Works 파일 |
+| 이슈 | 연결 위치 | 입력 → 출력 (계약: `app/contracts.py`) | 상태 |
+|---|---|---|---|
+| #41 설계 | 백엔드가 `[설계 시작]`을 보냄 → 설계 에이전트 | `StructuredRequirements` → `Ir` → 검사 통과 시 저장하고 `VERIFYING`으로 이동 | 완료 |
+| #42 검증 | `VERIFYING` 상태에서 서버가 자동 실행 | `Ir` → `VerificationResult`. 결과는 `orchestrator.report_verification`으로 | 완료 |
+| #43 수정 | `FIXING` 상태 → 수정 에이전트(`getFixInput`/`submitFix`) | `fix_request` → 고친 `Ir` → 서버가 `check_fix`로 재검증 | 완료 |
+| #44 파일 생성 | `COMPLETED → GENERATING → DELIVERED` | `Ir` → IL 파일, GX Works 파일은 PoC 확인 후 | 예정 |
 
 분석 결과는 `job_events`의 `requirements` 이벤트(`data`가 `StructuredRequirements`)에 저장돼요. 상태 전이는 `app/agents/orchestrator.py`의 `_move()`만 사용해 주세요.
 
