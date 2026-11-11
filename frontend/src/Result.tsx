@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+﻿import { lazy, Suspense, useState } from "react";
 import type { JobStatus } from "./api";
 import type { Ir } from "./sim/engine";
 
@@ -23,17 +23,17 @@ export interface VerificationData {
 interface Diff { added: string[]; removed: string[]; changed: { rung_id: string; summary: string }[] }
 
 const STATUS = {
-  PASS: { icon: "✓", label: "통과", cls: "ok" },
-  FAIL: { icon: "✕", label: "실패", cls: "bad" },
-  UNVERIFIED: { icon: "!", label: "검증 못 함", cls: "warn" },
+  PASS: { icon: "??, label: "?듦낵", cls: "ok" },
+  FAIL: { icon: "??, label: "?ㅽ뙣", cls: "bad" },
+  UNVERIFIED: { icon: "!", label: "寃利?紐???, cls: "warn" },
 } as const;
 
 export function Stepper({ steps, current, failed }: { steps: { key: string; label: string }[]; current: number; failed: boolean }) {
   return (
-    <ol className="run-stepper" aria-label="진행 단계">
+    <ol className="run-stepper" aria-label="吏꾪뻾 ?④퀎">
       {steps.map((s, i) => (
         <li key={s.key} className={i < current ? "done" : i === current ? (failed ? "fail" : "now") : ""} aria-current={i === current ? "step" : undefined}>
-          <span className="dot">{i < current ? "✓" : failed && i === current ? "✕" : i + 1}</span>
+          <span className="dot">{i < current ? "?? : failed && i === current ? "?? : i + 1}</span>
           <span className="lbl">{s.label}</span>
         </li>
       ))}
@@ -50,16 +50,16 @@ export function Summary({ v, fixCount, state }: { v: VerificationData; fixCount:
   return (
     <div className={`summary ${ok ? "ok" : "bad"}`} role="status">
       <div className="summary-main">
-        <span className="summary-icon">{ok ? "✓" : "!"}</span>
+        <span className="summary-icon">{ok ? "?? : "!"}</span>
         <div>
-          <strong>{ok ? "모든 조건이 검증을 통과했어요" : escalated ? "자동 수정에 실패했어요 · 사람이 확인해 주세요" : "검증을 통과하지 못한 조건이 있어요"}</strong>
-          <div className="summary-sub">서버가 회로를 모의 실행해서 조건을 하나씩 확인한 결과예요.</div>
+          <strong>{ok ? "紐⑤뱺 議곌굔??寃利앹쓣 ?듦낵?덉뼱?? : escalated ? "?먮룞 ?섏젙???ㅽ뙣?덉뼱??쨌 ?щ엺???뺤씤??二쇱꽭?? : "寃利앹쓣 ?듦낵?섏? 紐삵븳 議곌굔???덉뼱??}</strong>
+          <div className="summary-sub">?쒕쾭媛 ?뚮줈瑜?紐⑥쓽 ?ㅽ뻾?댁꽌 議곌굔???섎굹???뺤씤??寃곌낵?덉슂.</div>
         </div>
       </div>
       <div className="stats">
-        <div><b>{pass}/{total}</b><span>통과한 조건</span></div>
-        {unverified > 0 && <div><b>{unverified}</b><span>검증 못 한 조건</span></div>}
-        <div><b>{fixCount}</b><span>자동 수정 시도</span></div>
+        <div><b>{pass}/{total}</b><span>?듦낵??議곌굔</span></div>
+        {unverified > 0 && <div><b>{unverified}</b><span>寃利?紐???議곌굔</span></div>}
+        <div><b>{fixCount}</b><span>?먮룞 ?섏젙 ?쒕룄</span></div>
       </div>
     </div>
   );
@@ -68,7 +68,7 @@ export function Summary({ v, fixCount, state }: { v: VerificationData; fixCount:
 export function Conditions({ v }: { v: VerificationData }) {
   return (
     <section className="block">
-      <h3>조건별 검증 결과</h3>
+      <h3>議곌굔蹂?寃利?寃곌낵</h3>
       <ul className="cond-list">
         {v.conditions.map((c) => {
           const s = STATUS[c.status];
@@ -77,7 +77,7 @@ export function Conditions({ v }: { v: VerificationData }) {
               <span className="cond-id">{c.id}</span>
               <div className="cond-body">
                 <div className="cond-text">{c.text}</div>
-                {c.message && <div className="cond-msg">{c.message}{c.rung_id && ` · 렁 ${c.rung_id}`}</div>}
+                {c.message && <div className="cond-msg">{c.message}{c.rung_id && ` 쨌 ??${c.rung_id}`}</div>}
                 {c.notes.map((n) => <div key={n} className="cond-note">{n}</div>)}
               </div>
               <span className={`pill ${s.cls}`}><i aria-hidden>{s.icon}</i>{s.label}</span>
@@ -96,27 +96,27 @@ export function Conditions({ v }: { v: VerificationData }) {
 export function Fixes({ events }: { events: JobStatus["events"] }) {
   return (
     <section className="block">
-      <h3>자동 수정 기록</h3>
+      <h3>?먮룞 ?섏젙 湲곕줉</h3>
       <ul className="fix-list">
         {events.map((e, i) => {
           const diff = e.data.diff as Diff | undefined;
           const ok = e.kind === "fix_applied";
           return (
             <li key={i} className={ok ? "ok" : "bad"}>
-              <div className="fix-head"><span className={`pill ${ok ? "ok" : "bad"}`}>{ok ? "수정 성공" : "수정 거부"}</span> {String(e.data.reason)}</div>
-              {ok && e.data.agent_reason ? <div className="cond-msg">수정 이유: {String(e.data.agent_reason)}</div> : null}
+              <div className="fix-head"><span className={`pill ${ok ? "ok" : "bad"}`}>{ok ? "?섏젙 ?깃났" : "?섏젙 嫄곕?"}</span> {String(e.data.reason)}</div>
+              {ok && e.data.agent_reason ? <div className="cond-msg">?섏젙 ?댁쑀: {String(e.data.agent_reason)}</div> : null}
               {diff && (
                 <ul className="diff">
-                  {diff.changed.map((c) => <li key={c.rung_id}>렁 {c.rung_id}: {c.summary}</li>)}
-                  {diff.added.map((r) => <li key={"a" + r}>렁 {r} 추가</li>)}
-                  {diff.removed.map((r) => <li key={"r" + r}>렁 {r} 삭제</li>)}
+                  {diff.changed.map((c) => <li key={c.rung_id}>??{c.rung_id}: {c.summary}</li>)}
+                  {diff.added.map((r) => <li key={"a" + r}>??{r} 異붽?</li>)}
+                  {diff.removed.map((r) => <li key={"r" + r}>??{r} ??젣</li>)}
                 </ul>
               )}
             </li>
           );
         })}
       </ul>
-      <p className="notice">수정이 성공했는지는 AI가 아니라 서버가 모든 조건을 다시 모의 실행해서 확인해요.</p>
+      <p className="notice">?섏젙???깃났?덈뒗吏??AI媛 ?꾨땲???쒕쾭媛 紐⑤뱺 議곌굔???ㅼ떆 紐⑥쓽 ?ㅽ뻾?댁꽌 ?뺤씤?댁슂.</p>
     </section>
   );
 }
@@ -131,11 +131,21 @@ function Fold({ title, count, children }: { title: string; count?: number; child
 }
 
 export function Simulation({ d, v }: { d: DesignData; v?: VerificationData }) {
+  const [popup, setPopup] = useState(true);
   const conditions = (v?.conditions ?? []).map((c) => ({ id: c.id, text: c.text }));
-  if (!d.ir) return <p className="notice">이 설계에는 모의 실행에 필요한 회로 데이터가 없어요.</p>;
+  if (!d.ir) return <p className="notice">???ㅺ퀎?먮뒗 紐⑥쓽 ?ㅽ뻾???꾩슂???뚮줈 ?곗씠?곌? ?놁뼱??</p>;
   return (
     <section className="block">
-      <Suspense fallback={<p className="notice">모의 실행 화면을 불러오는 중…</p>}>
+      {popup && (
+        <div className="modal-back" onClick={() => setPopup(false)}>
+          <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <h3>???ㅼ젣 ?꾨줈洹몃옩?쇰줈 ?뺤씤?섏꽭??/h3>
+            <p>???붾㈃??紐⑥쓽 ?ㅽ뻾? 李멸퀬?⑹씠?먯슂. ?ㅼ젣 ?ㅻ퉬???곸슜?섍린 ?꾩뿉 GX Works ???ㅼ젣 ?꾨줈洹몃옩?먯꽌 諛섎뱶???ㅼ떆 ?뺤씤?섏꽭??</p>
+            <button onClick={() => setPopup(false)}>?뺤씤</button>
+          </div>
+        </div>
+      )}
+      <Suspense fallback={<p className="notice">紐⑥쓽 ?ㅽ뻾 ?붾㈃??遺덈윭?ㅻ뒗 以묅?/p>}>
         <PlcSimulator ir={d.ir} io={d.io_used} conditions={conditions} assumptions={d.assumptions} />
       </Suspense>
     </section>
@@ -145,10 +155,10 @@ export function Simulation({ d, v }: { d: DesignData; v?: VerificationData }) {
 export function Design({ d }: { d: DesignData }) {
   return (
     <section className="block">
-      <h3>설계 결과</h3>
-      <p className="notice">자동 생성된 초안이에요. 실제 장비에 넣기 전에 반드시 사람이 확인하세요.</p>
+      <h3>?ㅺ퀎 寃곌낵</h3>
+      <p className="notice">?먮룞 ?앹꽦??珥덉븞?댁뿉?? ?ㅼ젣 ?λ퉬???ｊ린 ?꾩뿉 諛섎뱶???щ엺???뺤씤?섏꽭??</p>
 
-      <h4>회로 동작 설명</h4>
+      <h4>?뚮줈 ?숈옉 ?ㅻ챸</h4>
       <ol className="rungs">
         {d.explanation.map((x) => (
           <li key={x.rung_id}>
@@ -159,10 +169,10 @@ export function Design({ d }: { d: DesignData }) {
         ))}
       </ol>
 
-      <h4>사용한 입출력</h4>
+      <h4>?ъ슜???낆텧??/h4>
       <div className="table-wrap">
         <table className="io-table">
-          <thead><tr><th>주소</th><th>이름</th><th>종류</th><th>설명</th></tr></thead>
+          <thead><tr><th>二쇱냼</th><th>?대쫫</th><th>醫낅쪟</th><th>?ㅻ챸</th></tr></thead>
           <tbody>
             {d.io_used.map((r) => (
               <tr key={r.device}><td><code>{r.device}</code></td><td>{r.name}</td><td>{r.kind}</td><td>{r.desc}</td></tr>
@@ -172,9 +182,9 @@ export function Design({ d }: { d: DesignData }) {
       </div>
 
       <div className="folds">
-        <Fold title="명령어(IL) 보기"><pre>{d.il.join("\n")}</pre></Fold>
-        {d.assumptions.length > 0 && <Fold title="가정" count={d.assumptions.length}><ul>{d.assumptions.map((a) => <li key={a}>{a}</li>)}</ul></Fold>}
-        {d.limitations.length > 0 && <Fold title="제한 사항" count={d.limitations.length}><ul>{d.limitations.map((a) => <li key={a}>{a}</li>)}</ul></Fold>}
+        <Fold title="紐낅졊??IL) 蹂닿린"><pre>{d.il.join("\n")}</pre></Fold>
+        {d.assumptions.length > 0 && <Fold title="媛?? count={d.assumptions.length}><ul>{d.assumptions.map((a) => <li key={a}>{a}</li>)}</ul></Fold>}
+        {d.limitations.length > 0 && <Fold title="?쒗븳 ?ы빆" count={d.limitations.length}><ul>{d.limitations.map((a) => <li key={a}>{a}</li>)}</ul></Fold>}
       </div>
     </section>
   );
