@@ -97,6 +97,10 @@ export async function runProject(id: string, answers: Answer[] = []): Promise<Jo
     throw new ApiError("서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.");
   }
   if (r.status === 503 || r.status === 409) throw new ApiError((await r.json()).detail);
+  if (r.status === 422) {
+    const d = (await r.json()).detail;
+    throw new ApiError(Array.isArray(d) ? `시작 전에 확인이 필요해요: ${d.join(" / ")}` : String(d));
+  }
   if (!r.ok) throw new ApiError(`실행을 시작하지 못했어요. (${r.status})`);
   return r.json();
 }

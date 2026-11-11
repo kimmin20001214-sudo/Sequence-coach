@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from . import db
+from . import db, preflight
 from .agent_api import status_of
 from .agents import orchestrator, runner
 
@@ -37,8 +37,12 @@ class RunRequest(BaseModel):
 @router.post("/projects/{project_id}/run", status_code=202)
 def run(project_id: str, body: RunRequest | None = None):
     """분석을 시작해요. 이전 질문에 답했다면 answers에 담아 다시 분석해요."""
-    if not db.get_project(project_id):
+    project = db.get_project(project_id)
+    if not project:
         raise HTTPException(404, "프로젝트를 찾을 수 없어요.")
+    problems = preflight.check(project)
+    if problems:
+        raise HTTPException(422, problems)
     if not runner.mode():
         raise HTTPException(503, "에이전트가 아직 연결되지 않았어요. 관리자에게 Copilot Studio 연결을 요청해 주세요.")
     if _is_busy(db.latest_job(project_id)):

@@ -18,7 +18,7 @@ def api_key(monkeypatch):
 
 
 def make_project(client, conditions=None):
-    p = valid_project()
+    p = valid_project(series="Q", cpu="Q06HCPU", software="GX Works2")
     p["io_list"] = IO
     p["conditions"] = [{"id": "", "text": t, "must_pass": True} for t in (conditions or ["START 누르면 MOTOR ON"])]
     r = client.post("/projects", json=p)
