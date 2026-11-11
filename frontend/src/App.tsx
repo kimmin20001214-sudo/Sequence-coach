@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   initialConfig, applyMeta, SAFETY_NOTICE, type Condition, type Config,
 } from "./spec";
@@ -42,6 +42,7 @@ function Wizard() {
   const [conditions, setConditions] = useState<Condition[]>([{ text: "", must_pass: true }]);
   const [condError, setCondError] = useState("");
   const [saved, setSaved] = useState<SavedProject | null>(null);
+  const savedSig = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
@@ -71,12 +72,7 @@ function Wizard() {
     else go(1);
   };
 
-  const save = async () => {
-    const list = conditions.filter((c) => c.text.trim());
-    if (!list.length) return setCondError("동작 조건을 1개 이상 입력해 주세요.");
-    if (!list.some((c) => c.must_pass)) return setCondError("필수 조건을 1개 이상 지정해 주세요.");
-    setCondError("");
-    const out = {
+  const buildOut = (list: Condition[]) => ({
       plc_config: {
         series: cfg.series, cpu: cfg.cpu, language: cfg.language, software: cfg.software,
         x_points: Number(cfg.x_points), y_points: Number(cfg.y_points), control_target: cfg.control_target,
@@ -87,11 +83,27 @@ function Wizard() {
       },
       io_list: cfg.io_list.map((r) => ({ ...r, device: r.device.trim().toUpperCase(), name: r.name.trim() })),
       conditions: list.map((c, i) => ({ id: "C" + (i + 1), text: c.text.trim(), must_pass: c.must_pass })),
-    };
+  });
+
+  // 새로고침 후 복원된 프로젝트도 내용이 같으면 다시 저장하지 않도록 기준값을 잡는다.
+  useEffect(() => {
+    if (saved && savedSig.current === null) savedSig.current = JSON.stringify(buildOut(conditions.filter((c) => c.text.trim())));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved]);
+
+  const save = async () => {
+    const list = conditions.filter((c) => c.text.trim());
+    if (!list.length) return setCondError("동작 조건을 1개 이상 입력해 주세요.");
+    if (!list.some((c) => c.must_pass)) return setCondError("필수 조건을 1개 이상 지정해 주세요.");
+    setCondError("");
+    const out = buildOut(list);
+    const sig = JSON.stringify(out);
+    if (saved && sig === savedSig.current) return go(2);
     setSaving(true);
     setSaveError("");
     try {
       const p = await saveProject(out);
+      savedSig.current = sig;
       sessionStorage.setItem(LAST_PROJECT, p.id);
       setSaved(p);
       go(2);
