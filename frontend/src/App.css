@@ -168,9 +168,9 @@ select:disabled { background: var(--bg); color: var(--muted); }
 .modal.criteria h3{color:#1f2937}
 .modal.criteria button{align-self:center;margin-top:14px;background:#4f46e5}
 .criteria-lead{margin:0 0 10px!important;font-size:14px;color:#4b5563;white-space:normal!important}
-.criteria-body{overflow-y:auto;padding-right:6px}
-.criteria-body h4{margin:14px 0 4px}
-.criteria-note{margin:0 0 6px!important;font-size:13px;color:#6b7280;white-space:normal!important}
-.criteria-body table{width:100%;border-collapse:collapse;font-size:14px}
-.criteria-body th{width:28%;text-align:left;vertical-align:top;padding:6px 8px;background:#f3f4f6;border:1px solid #e5e7eb}
-.criteria-body td{padding:6px 8px;border:1px solid #e5e7eb}
+.criteria-lead{margin:14px 0 0!important;font-size:14px;color:#4b5563;white-space:normal!important;text-align:center}
+.criteria-list{list-style:none;margin:0;padding:0;display:grid;gap:10px;min-width:min(420px,80vw)}
+.criteria-list li{display:flex;gap:12px;align-items:flex-start;background:#f3f4f6;border-radius:10px;padding:12px 14px}
+.criteria-no{flex:none;width:26px;height:26px;border-radius:50%;background:#4f46e5;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center}
+.criteria-list strong{display:block;margin-bottom:2px}
+.criteria-list p{margin:0!important;font-size:14px;color:#4b5563;white-space:normal!important;text-align:left}
