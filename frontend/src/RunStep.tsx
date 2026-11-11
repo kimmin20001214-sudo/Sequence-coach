@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { fetchAgentMode, fetchStatus, runProject, ApiError, type JobStatus } from "./api";
 import { Card } from "./ui";
 import { Conditions, Design, Fixes, Simulation, Stepper, Summary, type DesignData, type VerificationData } from "./Result";
+import { CriteriaButton } from "./Criteria";
 
 const STEPS = [
   { key: "analyze", label: "조건 분석" },
@@ -103,6 +104,7 @@ export default function RunStep({ projectId, page, onPage }: { projectId: string
         {status && verification ? (
           <>
             <Summary v={verification} fixCount={fixes.length} state={status.state} />
+            <CriteriaButton />
             {escalateReason && <div className="banner err" role="alert">{escalateReason}</div>}
             <Conditions v={verification} />
             {fixes.length > 0 && <Fixes events={fixes} />}

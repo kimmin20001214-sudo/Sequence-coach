@@ -163,3 +163,14 @@ select:disabled { background: var(--bg); color: var(--muted); }
 .modal p{margin:0 0 18px;line-height:1.6;white-space:nowrap;font-size:clamp(11px,2.4vw,16px)}
 .modal button{background:#78350f;color:#fff;border:0;border-radius:8px;padding:10px 28px;font-size:1rem;font-weight:600;cursor:pointer}
 .modal button:hover{background:#5c2a0c}
+.criteria-btn{margin:12px 0;background:var(--primary-soft);color:var(--primary);border:1px solid var(--primary);border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer}
+.modal.criteria{background:#fff;color:#1f2937;border-top:6px solid #4f46e5;width:min(720px,94vw);max-height:85vh;display:flex;flex-direction:column;text-align:left}
+.modal.criteria h3{color:#1f2937}
+.modal.criteria button{align-self:center;margin-top:14px;background:#4f46e5}
+.criteria-lead{margin:0 0 10px!important;font-size:14px;color:#4b5563;white-space:normal!important}
+.criteria-body{overflow-y:auto;padding-right:6px}
+.criteria-body h4{margin:14px 0 4px}
+.criteria-note{margin:0 0 6px!important;font-size:13px;color:#6b7280;white-space:normal!important}
+.criteria-body table{width:100%;border-collapse:collapse;font-size:14px}
+.criteria-body th{width:28%;text-align:left;vertical-align:top;padding:6px 8px;background:#f3f4f6;border:1px solid #e5e7eb}
+.criteria-body td{padding:6px 8px;border:1px solid #e5e7eb}
