@@ -174,3 +174,7 @@ select:disabled { background: var(--bg); color: var(--muted); }
 .criteria-no{flex:none;width:26px;height:26px;border-radius:50%;background:#4f46e5;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center}
 .criteria-list strong{display:block;margin-bottom:2px}
 .criteria-list p{margin:0!important;font-size:14px;color:#4b5563;white-space:normal!important;text-align:left}
+.criteria-btns{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.criteria-btns .criteria-btn{margin:0}
+.criteria-scroll{overflow-y:auto;max-height:60vh;padding-right:4px}
+.criteria-top{margin:-4px 0 10px!important;text-align:left}
