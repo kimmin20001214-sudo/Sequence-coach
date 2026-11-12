@@ -155,6 +155,16 @@ export function Simulation({ d, v }: { d: DesignData; v?: VerificationData }) {
   );
 }
 
+function downloadIl(il: string[]) {
+  const blob = new Blob([il.join("\r\n") + "\r\n"], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "circuit-il.txt";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function Design({ d }: { d: DesignData }) {
   return (
     <section className="block">
@@ -185,7 +195,19 @@ export function Design({ d }: { d: DesignData }) {
       </div>
 
       <div className="folds">
-        <Fold title="명령어(IL) 보기"><pre>{d.il.join("\n")}</pre></Fold>
+        <Fold title="명령어(IL) 보기">
+          <pre>{d.il.join("\n")}</pre>
+          <button type="button" className="btn ghost" onClick={() => downloadIl(d.il)}>IL 텍스트 내려받기 (.txt)</button>
+        </Fold>
+        <Fold title="GX Works2·GX Simulator에서 확인하는 방법">
+          <ol>
+            <li>GX Works2에서 새 프로젝트를 만들어요. 시리즈와 CPU는 입력한 설정과 같게 골라요. 언어는 래더예요.</li>
+            <li>프로그램 편집 화면에서 <b>명령어(리스트) 표시</b>로 바꾸고 내려받은 IL을 붙여 넣어요.</li>
+            <li>래더 표시로 돌아와 변환(컴파일)해 오류가 없는지 확인해요.</li>
+            <li><b>시뮬레이션 시작</b>(GX Simulator2)을 눌러 입력 디바이스를 바꿔 보며 출력이 조건대로 움직이는지 봐요.</li>
+          </ol>
+          <p className="notice">이 방법은 아직 실제 GX Works2에서 시험하지 못했어요. 붙여 넣기나 변환이 안 되면 알려 주세요. 파일 자동 생성·영상은 만들지 않았어요.</p>
+        </Fold>
         {d.assumptions.length > 0 && <Fold title="가정" count={d.assumptions.length}><ul>{d.assumptions.map((a) => <li key={a}>{a}</li>)}</ul></Fold>}
         {d.limitations.length > 0 && <Fold title="제한 사항" count={d.limitations.length}><ul>{d.limitations.map((a) => <li key={a}>{a}</li>)}</ul></Fold>}
       </div>
