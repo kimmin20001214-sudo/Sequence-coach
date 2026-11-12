@@ -4,215 +4,137 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 제품명 | Sequence Coach |
+| 제품명 | Sequence Coach (MELSEC PLC 회로 설계 지원) |
 | 문서 유형 | 기술 요구사항 정의서 (TRD) |
-| 상태 | 초안 |
-| 관련 문서 | [PRD](PRD.md) |
-| 구현 상태 | 저장소에는 현재 제품 실행 코드가 없으며, 이 문서는 목표 구조를 정의한다. |
+| 버전 | v2 (구현 현황 반영, 2026-11-11) |
+| 관련 문서 | [PRD](PRD.md), [Copilot Studio 연결 가이드](copilot-studio.md), [backend/README](../backend/README.md) |
+| 구현 상태 | 입력·분석·설계·검증·수정·결과·모의 실행 구현됨. IL 파일(#44)과 통합·배포(#45)는 예정 |
 
-## 2. 기술 목표와 설계 원칙
+## 2. 기술 원칙
 
-- 6개 역할을 분리하되 모든 작업은 팀장 에이전트가 통제하는 명시적 단계 흐름으로 실행한다.
-- 에이전트 간 데이터는 버전이 있는 구조화된 문서로 전달하며, 자유 형식 답변만으로 다음 단계를 승인하지 않는다.
-- 모든 결과를 입력 요구사항과 근거에 연결해 재현 가능하고 검토 가능한 작업 이력을 남긴다.
-- 안전 검토는 독립된 진행 차단점으로 구현하고, 검토 실패·불명확·미수행을 통과와 구분한다.
-- 외부 PLC 도구·시뮬레이터·파일 변환은 교체 가능한 어댑터 경계 뒤에 둔다.
-- 생성된 산출물은 설계 초안으로 취급하며, 기본 동작은 파일 제공까지로 제한하고 장비 전송은 하지 않는다.
+- **AI 판단과 정확한 계산을 분리한다.** AI(Copilot Studio)는 조건 분석·회로 작성·수정만 하고, 규칙 검사·시험 대본 생성·시뮬레이션·IL 변환은 일반 코드와 테스트로 처리한다.
+- 에이전트끼리는 Pydantic 계약(`backend/app/contracts.py`)으로만 데이터를 주고받는다. 계약을 바꾸면 PR 제목에 `[계약 변경]`을 붙인다.
+- 상태 전이는 `orchestrator._move()`만 사용한다. 실패·시간 초과·빈 응답은 성공으로 바꾸지 않는다.
+- 검증하지 않은 결과(실기 동작, GX Works 호환)는 성공으로 표시하지 않는다.
+- 화면 검증(`frontend/src/validate.ts`)과 서버 검증(`backend/app/validation.py`)은 같은 규칙을 유지한다.
 
-## 3. 논리 아키텍처
-
-```text
-사용자 입력
-    |
-    v
-팀장 에이전트 / 작업 상태 관리자
-    |
-    +--> 요구사항 분석 --> 사용자 확인 게이트
-    |                         |
-    +<-------------------------+
-    |
-    +--> 회로 설계 --> 안전 검토 게이트
-    |                         |
-    |                차단이면 중지·사용자 확인
-    |                         |
-    +<---------------- 통과 --+
-    |
-    +--> 회로 검증 --> 수정 및 보고서
-                              |
-                              +--> 재검증 반복 또는 제한 보고
-                              |
-                              +--> MELSEC 내보내기 어댑터
-    |
-    v
-추적 가능한 최종 보고서와 산출물
-```
-
-안전 검토는 회로 검증보다 먼저 수행한다. 안전 검토가 `통과`가 아니면 시뮬레이션이나 내보내기를 실행할 수 없다. 수정으로 안전 관련 설계 내용이 달라지면 안전 검토를 다시 수행한 뒤 재검증한다.
-
-## 4. 에이전트 입력·출력 계약
-
-모든 에이전트 호출은 `task_id`, `project_id`, `artifact_version`, `agent_role`, `input_artifact_ids`, `status`, `result`, `warnings`, `evidence` 필드를 포함하는 작업 봉투를 사용한다. 결과 상태는 최소한 `completed`, `needs_clarification`, `blocked`, `failed`, `not_run`을 구분한다. `blocked`, `failed`, `not_run`을 성공으로 변환하지 않는다.
-
-| 역할 | 입력 | 출력 |
-| --- | --- | --- |
-| 팀장 | 사용자 요청, 프로젝트 설정, 작업 상태 | 다음 단계 지시, 확인 질문, 통합 상태, 종료·차단 사유 |
-| 요구사항 분석 | 원문 요청, 설비·PLC 정보 | 요구사항 명세, 상태·전이 순서도, 입출력 목록 초안, 질문 목록 |
-| 회로 설계 | 확인된 요구사항, 입출력 목록, 대상 기종·언어 | 회로·프로그램 설계, 기기 할당, 요구사항 매핑, 가정·제한 |
-| 안전 검토 | 설계 버전, 적용 관할·설비 정보, 검토 자료 | 검토 상태, 위험 항목, 인용 근거, 불확실성, 요구 조치 |
-| 회로 검증 | 안전 검토가 통과된 설계 버전, 시나리오, 시뮬레이터 설정 | 요구사항별 시험 결과, 실행 로그 참조, 오류 위치, 미실행 사유 |
-| 수정 및 보고서 | 설계·안전 검토·검증 결과 버전 | 수정 버전, 변경 이유, 영향받는 요구사항, 재검증 상태, 최종 보고서, 산출물 참조 |
-
-각 출력은 생성 에이전트, 생성 시각, 입력 버전, 사용한 모델·도구의 식별 정보와 함께 보존한다. 모델 식별 정보의 세부 수준과 보존 정책은 운영 설계에서 확정한다.
-
-## 5. 핵심 자료 모델
-
-구현 저장소나 데이터베이스 선택과 무관하게 아래 논리 자료형을 보장한다.
-
-### Project
-
-- `project_id`: 프로젝트 식별자
-- `target`: PLC 제품군, CPU, 펌웨어, 프로그래밍 언어, MELSOFT 제품·버전
-- `jurisdiction`: 사용자가 확인한 관할 지역 및 설비 범위
-- `created_at`, `updated_at`
-
-### Requirement
-
-- `requirement_id`: 안정적인 식별자
-- `description`: 검증 가능한 동작 설명
-- `preconditions`, `inputs`, `expected_outputs`, `postconditions`
-- `priority`, `source_request_ref`, `status`
-- `unresolved_questions`: 미확정 사항
-
-### Artifact
-
-- `artifact_id`, `project_id`, `artifact_version`, `artifact_type`
-- `content_ref`: 내용 또는 안전한 저장소 참조
-- `created_by_role`, `created_at`
-- `parent_artifact_ids`: 입력으로 사용된 버전
-- `requirement_ids`: 연결된 요구사항
-
-### Review / Test Result
-
-- `status`: 명시적 결과 상태
-- `artifact_version`: 평가한 설계 버전
-- `criteria` 또는 `scenario_id`
-- `evidence_refs`: 출처, 로그, 재현 절차의 참조
-- `findings`: 발견 사항, 심각도, 위치, 권고 조치
-- `limitations`: 검토·실행에서 제외된 범위
-
-### Export
-
-- `target_profile`: PLC·개발 도구·버전
-- `format`, `artifact_version`, `content_ref`
-- `compatibility_status`: `verified`, `unverified`, `unsupported`, `failed`
-- `verification_evidence`: 가져오기·컴파일 등 수행한 확인 및 결과
-
-## 6. 단계 실행 및 상태 관리
-
-프로젝트 작업은 다음 상태 전이를 따른다.
+## 3. 아키텍처
 
 ```text
-received
-  -> requirements_draft
-  -> awaiting_user_confirmation
-  -> design_draft
-  -> safety_review
-  -> safety_blocked | safety_passed
-  -> simulation
-  -> revision
-  -> re_safety_review (안전 관련 변경 시)
-  -> re_simulation
-  -> export_check
-  -> completed | completed_with_limitations
+브라우저 (React + Vite + TypeScript)
+   |  /api/*  (개발: Vite 프록시, 배포: 같은 서버)
+   v
+FastAPI 서버 (backend/app)
+   |-- 입력·메타·템플릿 API, 사전 점검(preflight)
+   |-- run_api: 작업 시작 /projects/{id}/run
+   |-- agents/runner + orchestrator: 작업 상태 머신, 에이전트 호출·대기
+   |-- /mcp (MCP 도구) + /agent/* (REST, X-API-Key): 에이전트가 쓰는 도구
+   |-- plc/: 규칙 검사, IR→IL, 정적 검사, 스캔 시뮬레이터, 시험 틀(checks), 수정 요청
+   '-- SQLite: 프로젝트, 작업(jobs), 작업 이벤트(job_events), 템플릿
+
+Microsoft Copilot Studio 에이전트: 팀장 / 분석 / 설계 / 수정
+   (Direct Line으로 백엔드가 호출, 에이전트는 MCP 도구로 결과를 제출)
 ```
 
-- 사용자 확인이 필요한 모호한 요구사항이 있으면 설계 생성을 확정 단계로 진행하지 않는다.
-- 안전 검토는 통과·차단·검토 불가를 반환한다. 차단·검토 불가 상태에서는 검증 및 내보내기가 금지된다.
-- 시뮬레이션은 요구사항 ID별 테스트 결과를 남기며 통과·실패·미실행을 구분한다.
-- 수정 단계마다 새 설계 버전을 만든다. 이전 버전을 덮어쓰지 않는다.
-- 회로 검증이 실패하면 수정 단계로 전달하고, 수정 후에는 변경된 설계를 다시 검증한다.
-- 반복 횟수 제한과 제한 도달 시 사용자 개입 방식은 구현 전에 제품 결정으로 확정한다. 제한에 도달해도 미통과 결과를 완료로 표시하지 않는다.
-- 장시간 작업은 진행 상태와 단계별 오류를 사용자에게 알릴 수 있어야 하며, 재시도는 중복 산출물을 만들지 않도록 멱등 키를 사용한다.
+흐름: `조건 입력 → 사전 점검 → 분석 → 설계 → 자동 검증 ⇄ 수정 → 결과·모의 실행`.
 
-## 7. 안전 검토와 근거 처리
+**v1과의 차이**: v1의 안전 검토 게이트(에이전트)와 회로 검증 에이전트는 코드 검증(`plc/`)으로 대체됐다. v1의 `SimulatorAdapter`·`MelsecExportAdapter` 추상화는 만들지 않았고, 시뮬레이터는 자체 구현(백엔드 파이썬 + 프런트 `sim/engine.ts`)이다.
 
-- 법령·표준 자료는 버전, 게시 기관, 원문 URL 또는 관리된 내부 자료 식별자를 저장한다.
-- 검색 결과나 모델 지식만을 근거로 현행 법률의 최종 해석·적합 판정을 만들지 않는다.
-- 각 발견 사항은 인용 근거와 함께 설계의 관련 위치, 위험 시나리오, 미확인 가정, 조치 권고를 포함한다.
-- 자료가 없거나 적용 범위를 확인하지 못하면 `검토 불가` 또는 `추가 검토 필요`로 반환한다.
-- 실제 안전 승인 권한은 적격한 사람에게 둔다. 시스템의 상태 표시는 법적 승인이나 현장 안전 인증을 의미하지 않는다.
-- 안전 차단을 우회하는 관리자용 플래그나 자동 승인 경로를 제공하지 않는다. 운영상 예외가 필요하면 별도의 권한·감사 설계를 승인하기 전까지 기능화하지 않는다.
+## 4. 작업 상태 머신
 
-## 8. 시뮬레이터 통합
+`backend/app/contracts.py`의 `JOB_TRANSITIONS`가 기준이다.
 
-시뮬레이션 기능은 `SimulatorAdapter` 경계로 추상화한다. 어댑터는 최소한 다음 정보를 제공한다.
+```text
+INPUT_VALIDATED -> ANALYZING -> DESIGNING -> VERIFYING -> COMPLETED -> GENERATING -> DELIVERED
+                      |             |            |  ^
+                      |             |            v  |
+                      |             |          FIXING
+                      |             |            |
+                      v             v            v
+                 NEEDS_INPUT      FAILED      ESCALATED   (수정 횟수가 max_iter, 기본 5에 도달)
+```
 
-- 지원 PLC 프로파일, 명령어·언어, 시뮬레이터 제품·버전
-- 입력 설계 버전과 테스트 시나리오를 실행 가능한 프로젝트로 변환하는 기능
-- 실행 상태, 표준 출력·진단 정보, 종료 코드, 실행 환경 식별자 반환
-- 설계 변환 또는 실행 실패와 미지원 기능을 명확히 구분
+- `NEEDS_INPUT`: 분석이 사용자 확인을 요구. 질문은 최대 3개(`MAX_QUESTIONS`). 답하면 화면이 새 작업을 `answers`와 함께 시작한다.
+- `COMPLETED → GENERATING → DELIVERED`는 #44 파일 생성에서 사용 예정.
+- 각 전이는 `job_events`에 기록되어(`state`, `kind`, `data`, `created_at`) 화면의 단계별 경과 시간 계산에 쓰인다.
 
-시뮬레이터가 설치되지 않았거나 대상 명령어를 지원하지 않으면 테스트를 실행하지 않고 `not_run`으로 기록한다. 시뮬레이터 결과는 실제 배선·부품 고장·환경 조건을 모두 검증한 것으로 취급하지 않는다.
+## 5. 계약(데이터 형식)
 
-## 9. MELSEC 파일 내보내기
-
-내보내기는 `MelsecExportAdapter` 경계로 분리하고 대상별 프로파일과 검증된 변환기만 사용한다. 파일 형식을 임의로 추정하거나 확장자만 바꿔 호환된다고 표시하지 않는다.
-
-각 프로파일은 다음을 선언한다.
-
-- 지원 CPU·펌웨어 범위, 언어, MELSOFT 제품·버전
-- 입력 설계 스키마와 변환 가능한 명령·기기 범위
-- 출력 파일 형식과 대상 도구에서의 가져오기·컴파일 검증 절차
-- 알려진 제한 및 파일 생성 전 필수 프로젝트 정보
-
-호환성 상태는 다음 의미를 가진다.
-
-- `verified`: 지정된 도구·버전에서 가져오기 및 정해진 검증이 성공함
-- `unverified`: 파일은 생성했으나 대상 환경 검증을 수행하지 않음
-- `unsupported`: 대상 또는 명령이 지원 범위 밖임
-- `failed`: 변환·가져오기·컴파일 검증이 실패함
-
-`verified`는 표시된 대상 환경과 수행한 검사 범위에만 유효하며, 실제 장비의 안전성이나 동작을 보증하지 않는다. 장비로의 온라인 쓰기·다운로드·원격 실행 기능은 제공하지 않는다.
-
-## 10. 오류 처리와 관측 가능성
-
-- 모든 단계는 결과 상태, 오류 코드, 관련 작업 ID와 사용자에게 안내할 설명을 기록한다.
-- 입력 검증 오류는 빠르게 반환하고, 부분 산출물이 있으면 완료 결과와 분리해 표시한다.
-- 외부 도구 오류는 원인과 재시도 가능 여부를 보고한다. 실패를 빈 결과나 성공 상태로 대체하지 않는다.
-- 감사 로그에는 단계 전이, 에이전트 호출, 승인·확인 입력, 산출물 버전, 도구 실행 결과를 기록한다.
-- 로그에 원문 요청이나 설비 민감 정보를 넣는 범위, 접근 제어, 보존 기간은 개인정보·보안 검토 후 결정한다.
-
-## 11. 보안 및 운영 요구사항
-
-- 프로젝트별 접근 통제를 적용하고 산출물 참조에 인증·인가 검사를 수행한다.
-- 외부 파일 입력 시 크기·유형 제한, 안전한 파싱, 경로 조작 방지 및 악성 콘텐츠 취급을 설계한다.
-- 법규 자료·사용자 파일·에이전트 출력을 신뢰할 수 없는 입력으로 취급하고 명령 실행이나 도구 선택을 직접 제어하게 두지 않는다.
-- 시뮬레이터와 변환 도구는 격리된 실행 환경에서 최소 권한으로 구동한다.
-- 비밀값은 소스·프롬프트·일반 로그에 저장하지 않고 별도 비밀 관리 기능을 사용한다.
-- 데이터 보존·삭제·백업, 사용자 권한, 배포 및 장애 대응 기준은 구현 전에 운영 환경에 맞춰 확정한다.
-
-## 12. 검증 전략과 출시 기준
-
-| 검증 영역 | 필수 확인 |
+| 계약 | 설명 |
 | --- | --- |
-| 에이전트 계약 | 필수 필드 누락, 잘못된 상태 전이, 입력 버전 추적, 실패 상태 보존 |
-| 요구사항 흐름 | 모호한 입력의 질문 처리, 요구사항 ID 추적, 설계·시험 매핑 |
-| 안전 게이트 | 차단·검토 불가에서 시뮬레이션과 내보내기가 실행되지 않는지 확인 |
-| 수정 흐름 | 수정 전후 버전 보존, 관련 안전 재검토, 재시뮬레이션 여부 확인 |
-| 시뮬레이션 | 지원·미지원 대상, 실행 실패, 테스트 결과와 재현 정보 확인 |
-| MELSEC 내보내기 | 선언된 대상 환경별 가져오기·컴파일 결과와 미지원 처리 확인 |
-| 접근·감사 | 프로젝트 권한, 산출물 접근, 작업·승인 이력, 민감정보 로그 노출 확인 |
+| `StructuredRequirements` | 분석 결과. `Condition`(ID, 유형 `sequence/interlock/timing/safety/alarm`, `Check`), `TimerSpec`, `CounterSpec` 포함 |
+| `Check` | 시험 틀 이름(`self_hold`, `stop_priority`, `on_delay`, `timed_on`, `interlock`, `and_enable`, `or_enable`, `indicator`, `set_reset`, `custom`)과 신호 이름. 시험 대본은 코드가 생성 |
+| `Ir` | 회로. 접점 `Contact`(NO/NC), 직렬 `Series`, 병렬 `Parallel`, 출력 `Output`(OUT, SET, RST, TON, CTU), `Rung` |
+| `VerificationResult` / `VerificationIssue` | 검증 결과와 문제(예: `DOUBLE_COIL`) |
 
-출시 전에는 PRD의 완료 기준과 각 지원 프로파일의 실제 검증 근거가 있어야 한다. 이 저장소에는 현재 실행 코드와 검증 명령이 정의되어 있지 않으므로, 구현 단계에서 도구·명령과 자동화 테스트를 확정하고 제품별 실제 환경 검증을 추가한다.
+## 6. 백엔드 구성
 
-## 13. 기술 결정이 필요한 사항
+| 영역 | 파일 | 역할 |
+| --- | --- | --- |
+| 입력 | `main.py`, `validation.py`, `spec.py`, `data/*.json` | PLC 기준 데이터(`plc_spec.json`, `instructions.json`), 검증, 프로젝트·템플릿 저장 |
+| 사전 점검 | `preflight.py`, `run_api.py` | 실행 전 차단: Q시리즈·래더·호환 CPU/소프트웨어 아님, 타이머 단위가 100ms 아님, 조건의 시간이 100ms 배수가 아니거나 K32767 초과. 차단 시 HTTP 422 + 한국어 사유 목록 |
+| 에이전트 | `agents/runner.py`, `orchestrator.py`, `analyzer.py`, `schemas.py` | 작업 실행·상태 기록·질문 정리. 제한 시간 `COPILOT_TIMEOUT_SECONDS`(기본 180초) |
+| 에이전트 도구 | `mcp_api.py`, `agent_api.py` | MCP: `getJob`, `submitRequirements`, `getDesignInput`, `validateIr`, `submitDesign`, `getFixInput`, `submitFix`, `getStatus`, `reportVerification`, `startJob`. REST `/agent/*`는 `AGENT_API_KEY` 필요 |
+| 회로 규칙 | `plc/rules.py`, `design_check.py`, `to_il.py` | IR 사전 검사(비상정지 인터록 포함), 신호표, IR→IL 변환 |
+| 검증 | `plc/verify.py`, `static_check.py`, `sim.py`, `scenario.py`, `checks.py`, `auto_check.py` | 정적 검사, 스캔 시뮬레이션(10ms), 조건별 시험, 자동 안전 탐색 |
+| 수정 | `plc/fix_request.py`, `fix_check.py`, `ir_diff.py`, `error_knowledge.py` | 실패 원인을 수정 에이전트에 전달, 고친 IR을 서버가 재검증, 변경 비교 |
+| 저장 | `db.py` | 개발용 SQLite. 배포 시 PostgreSQL 등으로 교체 필요 |
 
-구현 착수 전에 아래 항목을 결정해야 한다.
+주요 API: `GET /health`, `/meta*`, `POST /validate`, `POST /projects`, `GET /projects[/{id}]`, `GET /projects/{id}/status`, `POST /projects/{id}/run`(202), `/templates`, `/agent-mode`, `/agent-spec.json`.
 
-1. 백엔드 언어·프레임워크, 사용자 인터페이스, 데이터베이스와 산출물 저장소
-2. 에이전트 실행 프레임워크, 모델 제공자, 호출 권한·비용·재시도 정책
-3. 초기 지원 MELSEC CPU·펌웨어, MELSOFT 제품·버전, 지원 프로그래밍 언어와 실제 파일 형식
-4. 사용할 시뮬레이터와 라이선스, 자동 실행 가능 범위 및 실행 격리 방식
-5. 검토할 관할 지역·법령·표준의 공식 자료 관리 방법과 적격 사람의 승인 절차
-6. 사용자 인증·권한, 데이터 보존·삭제, 운영 로그 및 배포 환경
-7. 수정·재검증 반복 한도, 품질 측정 지표, 출시 승인 기준
+## 7. 프런트엔드 구성
+
+`frontend/src`: 5단계 마법사(기본 설정 → 동작 조건 → 설계 요청 → 검증 결과 → 모의 실행).
+
+| 파일 | 역할 |
+| --- | --- |
+| `App.tsx`, `SettingsStep.tsx`, `ConditionsStep.tsx`, `TemplatesCard.tsx`, `csv.ts`, `validate.ts`, `spec.ts` | 입력 화면, CSV 가져오기, 템플릿, 검증 |
+| `RunStep.tsx`, `api.ts` | 실행·상태 조회(2초 폴링), 단계별·총 경과 시간, 사전 점검 422 표시 |
+| `Result.tsx`, `Criteria.tsx` | 결과 요약, 조건별 결과, "검증 신뢰도 낮음" 배지, 검증 기준 팝업, 설계 보기 |
+| `sim/` (`engine.ts`, `PlcSimulator.tsx`, `LadderView.tsx`) | 웹 모의 실행. 시작 버튼을 눌러야 재생 |
+| `simulator.html` | 시뮬레이터 단독 데모 페이지 |
+
+## 8. 검증 로직
+
+- **시험 틀(check)**: 분석 에이전트는 틀 이름과 신호 이름만 고르고, 시험 입력 대본은 `scenario.py`/`checks.py`가 만든다. 틀로 표현할 수 없는 조건은 `custom`이며, 결과에 "검증 신뢰도 낮음"과 이유를 붙인다.
+- **자동 안전 탐색**: 시나리오가 부족해도 거짓 통과가 나지 않도록 `auto_check.py`가 고정 seed로 입력을 흔들어 본다. 아무것도 누르지 않았는데 출력이 켜짐, 정지·비상정지를 누른 채 출력이 켜짐, 어떤 입력으로도 켜지지 않는 출력, 조건이 말한 신호를 시험이 다루지 않음(경고)을 찾는다.
+- **판정**: 통과·실패·실행 불가를 구분한다. 수정 반복이 최대 횟수에 도달하면 `ESCALATED`로 끝낸다.
+- **알려진 한계**: 시뮬레이터는 10ms 고정 스캔이며 PLC 설정을 반영하지 않는다. TOF 출력이 없어 오프딜레이는 TON+자기유지 `custom` 시험으로 확인한다.
+
+## 9. 테스트와 CI
+
+- 백엔드: `cd backend; pytest -q` (현재 340개 통과, 20개 테스트 파일). 설계·검증·수정·사전 점검·에이전트 흐름·MCP를 포함한다.
+- 프런트: `npm run lint`, `npm run build`. 린트에는 `sim/demo.tsx`의 기존 경고 1건이 있다.
+- CI: `.github/workflows/ci.yml`. PR 리뷰: 앱의 `student-reviewer` 에이전트.
+- 실제 에이전트 시험은 Studio 연결이 필요해 로컬 스크립트로 한다. 오프딜레이 회로는 실제 에이전트로 완료(약 88초)와 IL 출력까지 확인했다.
+
+## 10. 설정과 보안
+
+| 환경변수 | 용도 |
+| --- | --- |
+| `AGENT_API_KEY` | `/agent/*` 인증. 없으면 닫힘 |
+| `AGENT_DEMO=1` | 에이전트 없이 가짜 분석으로 화면 시험(`start-demo.bat`) |
+| `COPILOT_TIMEOUT_SECONDS` | 에이전트 응답 제한(기본 180) |
+| `DATABASE_PATH` | SQLite 경로(기본 `data.sqlite3`) |
+| `PORT` | 배포 포트(Render가 지정) |
+
+- 비밀값(API 키, Direct Line 암호)은 소스·로그·이슈에 넣지 않는다. 개발 중 노출된 값은 **배포 전 교체**해야 한다.
+- 사용자 입력은 Microsoft 서비스(Copilot Studio)로 전송된다. 기밀 도면은 조직 정책 확인 후 사용한다.
+- 에이전트 결과는 신뢰하지 않고 백엔드가 항상 다시 검사한다(신호 존재, 비상정지, IR 규칙).
+- 인증·사용자 권한·데이터 보존 정책은 아직 없다(단일 팀 개발용). 배포 전에 결정한다.
+
+## 11. 배포
+
+루트 `Dockerfile` + `render.yaml`: FastAPI 서버 1개가 프런트 빌드 결과와 `/api/*`를 함께 제공한다(상태 확인 `/api/health`). 로컬 실행은 `start.bat`(실제 에이전트), `start-demo.bat`(데모). Render 무료 플랜은 슬립 후 첫 응답이 느리고 디스크가 영구 저장이 아니다.
+
+## 12. 남은 기술 과제
+
+| 항목 | 설명 |
+| --- | --- |
+| #44 파일·영상 | GX Works 파일 형식 PoC(`feat/44-gxworks` 브랜치, PR #64 열림: IL 변환·녹화·워커 틀). PoC 전에는 IL 텍스트만 제공 |
+| #45 통합·배포 | Render 배포, 비밀값 교체, DB 교체 검토 |
+| `off_delay` 시험 틀 | 오프딜레이를 `custom` 대신 전용 틀로 검증 |
+| 시뮬레이터 | PLC 설정(CPU 성능 등) 반영 |
+| 실패 화면 | 실패 사유를 마크다운으로 알기 쉽게 표시 |
+| 응답 속도 | 분석·설계 지침 축약, 빠른 모델은 Studio에서 품질 확인 후 판단. 분석 생략은 하지 않음 |
+| 정리 | 중복 이슈 #10~#17, 테스트 프로젝트 데이터 |
