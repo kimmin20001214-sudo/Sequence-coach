@@ -27,9 +27,9 @@ def rung(rid, signal, target, kind="OUT", **preset):
 def test_self_hold_release_and_normally_closed_stop():
     req, ir = load_case("self_hold")
     trace = run(ir, [
-        {"t_ms": 0, "set": {"START": 1, "STOP": 1}},
+        {"t_ms": 0, "set": {"START": 1}},
         {"t_ms": 50, "set": {"START": 0}},
-        {"t_ms": 100, "set": {"STOP": 0}},
+        {"t_ms": 100, "set": {"STOP": 1}},
     ], io_list=req.io_list, until_ms=120)
     assert trace[0]["state"]["Y0"] is True
     assert trace[9]["state"]["Y0"] is True
@@ -37,20 +37,20 @@ def test_self_hold_release_and_normally_closed_stop():
     assert trace[-1]["t_ms"] == 120
 
 
-def test_nc_button_is_not_automatically_initialized_on():
+def test_stop_button_is_off_until_pressed():
     req, ir = load_case("self_hold")
     trace = run(ir, [{"t_ms": 0, "set": {"X1": 1}}], io_list=req.io_list)
     assert trace[0]["state"]["X2"] is False
-    assert trace[0]["state"]["Y0"] is False
+    assert trace[0]["state"]["Y0"] is True
 
 
 def test_estop_and_no_unintended_output():
     req, ir = load_case("estop_interlock")
     trace = run(ir, [
-        {"t_ms": 0, "set": {"EMG": 1, "STOP": 1}},
+        {"t_ms": 0, "set": {"START": 0}},
         {"t_ms": 20, "set": {"START": 1}},
         {"t_ms": 40, "set": {"START": 0}},
-        {"t_ms": 60, "set": {"EMG": 0}},
+        {"t_ms": 60, "set": {"EMG": 1}},
     ], io_list=req.io_list, until_ms=80)
     assert trace[0]["state"]["Y0"] is False
     assert trace[4]["state"]["Y0"] is True
@@ -137,7 +137,7 @@ def test_aliases_addresses_and_no_mutation_or_state_leak():
     req, ir = load_case("self_hold")
     original = ir.model_dump()
     ir.rungs[0].outputs[0].target = " motor "
-    steps = [{"t_ms": 0, "set": {" start ": True, "x02": 1}}]
+    steps = [{"t_ms": 0, "set": {" start ": True, "x02": 0}}]
     before = json.dumps(steps)
     first = run(ir, steps, io_list=req.io_list)
     assert first[0]["state"]["Y0"] is True

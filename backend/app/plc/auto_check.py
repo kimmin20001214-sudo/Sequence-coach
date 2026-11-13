@@ -44,8 +44,8 @@ def auto_check(
     signals = Signals(io_list)
     inputs = [(row, signals.address(row.device)) for row in io_list if row.device.strip().upper().startswith("X")]
     outputs = [(row, signals.address(row.device)) for row in io_list if row.device.strip().upper().startswith("Y")]
-    idle = {dev: (1 if _is_nc(row) else 0) for row, dev in inputs}
-    pressed = {dev: (0 if _is_nc(row) else 1) for row, dev in inputs}
+    idle = {dev: 0 for _, dev in inputs}
+    pressed = {dev: 1 for _, dev in inputs}
     stops = [(row, dev) for row, dev in inputs if _is_stop(row)]
     controlled = [(row, dev) for row, dev in outputs if not INDICATOR_WORDS.search(f"{row.name} {row.kind} {row.desc}")]
 

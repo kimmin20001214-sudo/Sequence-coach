@@ -51,7 +51,7 @@ def test_good_fix_completes_and_saves_knowledge(client):
     kinds = [e["kind"] for e in events]
     assert "fix_applied" in kinds and "knowledge_skipped" not in kinds
     last_design = [e for e in events if e["kind"] == "design"][-1]["data"]
-    assert last_design["il"] == ["LD X1", "OR Y0", "AND X2", "OUT Y0", "END"]
+    assert last_design["il"] == ["LD X1", "OR Y0", "ANI X2", "OUT Y0", "END"]
     assert [e for e in events if e["kind"] == "verification"][-1]["data"]["passed"] is True
     from app.plc.error_knowledge import build_signature, find_similar
     cases = find_similar("Q", build_signature("Q", "sequence", "UNMET_CONDITION"), [])
