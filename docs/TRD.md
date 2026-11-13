@@ -131,7 +131,7 @@ INPUT_VALIDATED -> ANALYZING -> DESIGNING -> VERIFYING -> COMPLETED -> GENERATIN
 
 | 항목 | 설명 |
 | --- | --- |
-| #44 파일·영상 | GX Works 파일 형식 PoC(`feat/44-gxworks` 브랜치, PR #64 열림: IL 변환·녹화·워커 틀). PoC 전에는 IL 텍스트만 제공 |
+| #44 GX Works 파일 | 결과 화면에서 GX Works2용 CSV 받기(PR #103). 자기유지·타이머 회로를 GX Works2 체험판(Q03UD)에서 읽어 래더 표시를 확인. CTU·SET/RST·분기 명령·GX Simulator2는 미확인. 영상은 만들지 않음. 옛 PoC 브랜치 `feat/44-gxworks`(PR #64)는 참고용 |
 | #45 통합·배포 | Render 배포, 비밀값 교체, DB 교체 검토 |
 | `off_delay` 시험 틀 | 오프딜레이를 `custom` 대신 전용 틀로 검증 |
 | 시뮬레이터 | PLC 설정(CPU 성능 등) 반영 |
