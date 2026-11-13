@@ -38,7 +38,7 @@ def OR(*items):
 
 IO = [
     {"device": "X1", "name": "START", "kind": "푸시버튼 NO", "desc": ""},
-    {"device": "X2", "name": "STOP", "kind": "푸시버튼 NC", "desc": ""},
+    {"device": "X2", "name": "STOP", "kind": "푸시버튼 NO", "desc": ""},
     {"device": "X3", "name": "B", "kind": "푸시버튼 NO", "desc": ""},
     {"device": "Y0", "name": "MOTOR", "kind": "모터", "desc": ""},
     {"device": "Y1", "name": "LAMP", "kind": "램프", "desc": ""},
@@ -61,7 +61,7 @@ def passed_by_check(result):
     return any(w.code == "CONDITION_PASSED" for w in result.warnings)
 
 
-HOLD = (AND(OR(C("X1"), C("Y0")), C("X2")), [OUT("Y0")])
+HOLD = (AND(OR(C("X1"), C("Y0")), C("X2", "NC")), [OUT("Y0")])
 
 SELF_HOLD = {"pattern": "self_hold", "start": "START", "stop": "STOP", "output": "MOTOR"}
 
@@ -74,7 +74,7 @@ def test_self_hold_passes_and_catches_missing_stop():
 
 
 def test_self_hold_catches_missing_hold():
-    result = run_check(SELF_HOLD, ir_of((AND(C("X1"), C("X2")), [OUT("Y0")])))
+    result = run_check(SELF_HOLD, ir_of((AND(C("X1"), C("X2", "NC")), [OUT("Y0")])))
     assert not result.passed
     assert any("기대값 1" in e.message for e in result.errors)
 
@@ -91,7 +91,7 @@ TIMER = [{"name": "T0", "preset_ms": 3000}]
 
 def delay_ir(preset=3000):
     return ir_of(
-        (AND(C("X1"), C("X2")), [OUT("T0", "TON", preset_ms=preset)]),
+        (AND(C("X1"), C("X2", "NC")), [OUT("T0", "TON", preset_ms=preset)]),
         (C("T0"), [OUT("Y0")]),
     )
 
@@ -149,7 +149,7 @@ def test_set_reset():
 
 def test_custom_passes_through_and_is_flagged_low_confidence():
     check = {"pattern": "custom",
-             "steps": [{"t_ms": 0, "set": {"STOP": 1}}, {"t_ms": 100, "set": {"START": 1}}],
+             "steps": [{"t_ms": 0, "set": {"STOP": 0}}, {"t_ms": 100, "set": {"START": 1}}],
              "expect": [{"t_ms": 200, "dev": "MOTOR", "value": 1}]}
     result = run_check(check, ir_of(HOLD))
     assert result.passed

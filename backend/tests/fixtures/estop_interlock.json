@@ -2,42 +2,148 @@
   "name": "estop_interlock",
   "requirements": {
     "plc_config": {
-      "series": "Q", "cpu": "Q06HCPU", "language": "ladder", "software": "GX Works2",
-      "x_points": 32, "y_points": 32, "control_target": "컨베이어", "safety_ack": true,
-      "emergency_stop": {"used": true, "device": "X0"}, "project_name": "ESTOP"
+      "series": "Q",
+      "cpu": "Q06HCPU",
+      "language": "ladder",
+      "software": "GX Works2",
+      "x_points": 32,
+      "y_points": 32,
+      "control_target": "컨베이어",
+      "safety_ack": true,
+      "emergency_stop": {
+        "used": true,
+        "device": "X0"
+      },
+      "project_name": "ESTOP"
     },
     "io_list": [
-      {"device": "X0", "name": "EMG", "kind": "푸시버튼 NC", "desc": "비상정지(평상시 ON)"},
-      {"device": "X1", "name": "START", "kind": "푸시버튼 NO", "desc": "시작"},
-      {"device": "X2", "name": "STOP", "kind": "푸시버튼 NC", "desc": "정지(평상시 ON)"},
-      {"device": "Y0", "name": "MOTOR_FWD", "kind": "모터", "desc": "정방향"},
-      {"device": "Y1", "name": "MOTOR_REV", "kind": "모터", "desc": "역방향"}
+      {
+        "device": "X0",
+        "name": "EMG",
+        "kind": "푸시버튼 NO",
+        "desc": "비상정지"
+      },
+      {
+        "device": "X1",
+        "name": "START",
+        "kind": "푸시버튼 NO",
+        "desc": "시작"
+      },
+      {
+        "device": "X2",
+        "name": "STOP",
+        "kind": "푸시버튼 NO",
+        "desc": "정지"
+      },
+      {
+        "device": "Y0",
+        "name": "MOTOR_FWD",
+        "kind": "모터",
+        "desc": "정방향"
+      },
+      {
+        "device": "Y1",
+        "name": "MOTOR_REV",
+        "kind": "모터",
+        "desc": "역방향"
+      }
     ],
     "conditions": [
-      {"id": "C1", "type": "sequence", "text": "START를 누르면 MOTOR_FWD가 켜지고 유지된다.", "must_pass": true, "signals": ["START", "MOTOR_FWD"]},
-      {"id": "C2", "type": "interlock", "text": "MOTOR_FWD가 켜져 있으면 MOTOR_REV는 켜지지 않는다.", "must_pass": true, "signals": ["MOTOR_FWD", "MOTOR_REV"]},
-      {"id": "C3", "type": "safety", "text": "비상정지(X0) 입력 시 모든 출력을 OFF 한다.", "must_pass": true, "signals": ["X0"]}
+      {
+        "id": "C1",
+        "type": "sequence",
+        "text": "START를 누르면 MOTOR_FWD가 켜지고 유지된다.",
+        "must_pass": true,
+        "signals": [
+          "START",
+          "MOTOR_FWD"
+        ]
+      },
+      {
+        "id": "C2",
+        "type": "interlock",
+        "text": "MOTOR_FWD가 켜져 있으면 MOTOR_REV는 켜지지 않는다.",
+        "must_pass": true,
+        "signals": [
+          "MOTOR_FWD",
+          "MOTOR_REV"
+        ]
+      },
+      {
+        "id": "C3",
+        "type": "safety",
+        "text": "비상정지(X0) 입력 시 모든 출력을 OFF 한다.",
+        "must_pass": true,
+        "signals": [
+          "X0"
+        ]
+      }
     ],
-    "timers": [], "counters": [],
-    "assumptions": ["비상정지 조건은 입력 설정에 따라 자동으로 추가했어요."], "questions": []
+    "timers": [],
+    "counters": [],
+    "assumptions": [
+      "비상정지 조건은 입력 설정에 따라 자동으로 추가했어요."
+    ],
+    "questions": []
   },
   "ir": {
     "version": 1,
     "rungs": [
       {
-        "id": "R1", "comment": "정방향 자기유지 + 비상정지 + 역방향 인터록", "covers": ["C1", "C2", "C3"],
-        "condition": {"type": "AND", "items": [
-          {"type": "contact", "kind": "NO", "signal": "X0"},
-          {"type": "OR", "items": [
-            {"type": "contact", "kind": "NO", "signal": "X1"},
-            {"type": "contact", "kind": "NO", "signal": "Y0"}
-          ]},
-          {"type": "contact", "kind": "NO", "signal": "X2"},
-          {"type": "contact", "kind": "NC", "signal": "Y1"}
-        ]},
-        "outputs": [{"kind": "OUT", "target": "Y0"}]
+        "id": "R1",
+        "comment": "정방향 자기유지 + 비상정지 + 역방향 인터록",
+        "covers": [
+          "C1",
+          "C2",
+          "C3"
+        ],
+        "condition": {
+          "type": "AND",
+          "items": [
+            {
+              "type": "contact",
+              "kind": "NC",
+              "signal": "X0"
+            },
+            {
+              "type": "OR",
+              "items": [
+                {
+                  "type": "contact",
+                  "kind": "NO",
+                  "signal": "X1"
+                },
+                {
+                  "type": "contact",
+                  "kind": "NO",
+                  "signal": "Y0"
+                }
+              ]
+            },
+            {
+              "type": "contact",
+              "kind": "NC",
+              "signal": "X2"
+            },
+            {
+              "type": "contact",
+              "kind": "NC",
+              "signal": "Y1"
+            }
+          ]
+        },
+        "outputs": [
+          {
+            "kind": "OUT",
+            "target": "Y0"
+          }
+        ]
       }
     ]
   },
-  "verification": {"passed": true, "errors": [], "warnings": []}
+  "verification": {
+    "passed": true,
+    "errors": [],
+    "warnings": []
+  }
 }

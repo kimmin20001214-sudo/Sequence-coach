@@ -69,10 +69,10 @@ class _Ctx:
         return self.nc(dev) or bool(re.search(r"정지|비상|STOP|EMG|ESTOP", f"{row.name} {row.desc}", re.IGNORECASE))
 
     def idle(self, dev: str) -> int:
-        return 1 if self.nc(dev) else 0
+        return 0
 
     def press(self, dev: str) -> int:
-        return 0 if self.nc(dev) else 1
+        return 1
 
     @property
     def hold_ms(self) -> int:

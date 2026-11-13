@@ -4,34 +4,120 @@
     {
       "condition_id": "C1",
       "steps": [
-        {"t_ms": 0, "set": {"STOP": 1}},
-        {"t_ms": 100, "set": {"START": 1}},
-        {"t_ms": 150, "set": {"START": 0}}
+        {
+          "t_ms": 0,
+          "set": {
+            "STOP": 0
+          }
+        },
+        {
+          "t_ms": 100,
+          "set": {
+            "START": 1
+          }
+        },
+        {
+          "t_ms": 150,
+          "set": {
+            "START": 0
+          }
+        }
       ],
       "expect": [
-        {"t_ms": 0, "dev": "MOTOR", "value": 0},
-        {"t_ms": 90, "dev": "MOTOR", "value": 0},
-        {"t_ms": 100, "dev": "MOTOR", "value": 1},
-        {"t_ms": 200, "dev": "MOTOR", "value": 1},
-        {"t_ms": 1000, "dev": "MOTOR", "value": 1}
+        {
+          "t_ms": 0,
+          "dev": "MOTOR",
+          "value": 0
+        },
+        {
+          "t_ms": 90,
+          "dev": "MOTOR",
+          "value": 0
+        },
+        {
+          "t_ms": 100,
+          "dev": "MOTOR",
+          "value": 1
+        },
+        {
+          "t_ms": 200,
+          "dev": "MOTOR",
+          "value": 1
+        },
+        {
+          "t_ms": 1000,
+          "dev": "MOTOR",
+          "value": 1
+        }
       ]
     },
     {
       "condition_id": "C2",
       "steps": [
-        {"t_ms": 0, "set": {"STOP": 1, "START": 1}},
-        {"t_ms": 50, "set": {"START": 0}},
-        {"t_ms": 100, "set": {"STOP": 0}},
-        {"t_ms": 150, "set": {"STOP": 1}},
-        {"t_ms": 500, "set": {"START": 1}},
-        {"t_ms": 550, "set": {"START": 0}}
+        {
+          "t_ms": 0,
+          "set": {
+            "STOP": 0,
+            "START": 1
+          }
+        },
+        {
+          "t_ms": 50,
+          "set": {
+            "START": 0
+          }
+        },
+        {
+          "t_ms": 100,
+          "set": {
+            "STOP": 1
+          }
+        },
+        {
+          "t_ms": 150,
+          "set": {
+            "STOP": 0
+          }
+        },
+        {
+          "t_ms": 500,
+          "set": {
+            "START": 1
+          }
+        },
+        {
+          "t_ms": 550,
+          "set": {
+            "START": 0
+          }
+        }
       ],
       "expect": [
-        {"t_ms": 90, "dev": "MOTOR", "value": 1},
-        {"t_ms": 100, "dev": "MOTOR", "value": 0},
-        {"t_ms": 490, "dev": "MOTOR", "value": 0},
-        {"t_ms": 500, "dev": "MOTOR", "value": 1},
-        {"t_ms": 1000, "dev": "MOTOR", "value": 1}
+        {
+          "t_ms": 90,
+          "dev": "MOTOR",
+          "value": 1
+        },
+        {
+          "t_ms": 100,
+          "dev": "MOTOR",
+          "value": 0
+        },
+        {
+          "t_ms": 490,
+          "dev": "MOTOR",
+          "value": 0
+        },
+        {
+          "t_ms": 500,
+          "dev": "MOTOR",
+          "value": 1
+        },
+        {
+          "t_ms": 1000,
+          "dev": "MOTOR",
+          "value": 1
+        }
       ]
     }
   ]
