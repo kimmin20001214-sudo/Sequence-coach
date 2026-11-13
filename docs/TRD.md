@@ -131,7 +131,7 @@ INPUT_VALIDATED -> ANALYZING -> DESIGNING -> VERIFYING -> COMPLETED -> GENERATIN
 
 | 항목 | 설명 |
 | --- | --- |
-| #44 GX Works 파일 | 결과 화면에서 GX Works2용 CSV 받기(PR #103). 자기유지·타이머 회로를 GX Works2 체험판(Q03UD)에서 읽어 래더 표시를 확인. GX Simulator2 확인은 사용자 재시험 대기 중(NC 입력은 먼저 ON으로 두어야 해요). CTU·SET/RST·분기 명령·다른 CPU는 미확인. 영상은 만들지 않음. 옛 PoC 브랜치 `feat/44-gxworks`(PR #64)는 참고용 |
+| #44 GX Works 파일 | 결과 화면에서 GX Works2용 CSV 받기(PR #103). 자기유지·타이머 회로를 GX Works2 체험판(Q03UD)에서 읽어 래더 표시를 확인. GX Simulator2 확인은 사용자 재시험 대기 중(정지·비상정지는 NO 버튼 + b접점으로 설계해 먼저 ON으로 둘 필요가 없어요. 디자인 에이전트 지침을 새로 붙여 넣어야 해요). CTU·SET/RST·분기 명령·다른 CPU는 미확인. 영상은 만들지 않음. 옛 PoC 브랜치 `feat/44-gxworks`(PR #64)는 참고용 |
 | #45 통합·배포 | Render 배포, 비밀값 교체, DB 교체 검토 |
 | `off_delay` 시험 틀 | 오프딜레이를 `custom` 대신 전용 틀로 검증 |
 | 시뮬레이터 | PLC 설정(CPU 성능 등) 반영 |

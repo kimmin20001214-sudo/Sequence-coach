@@ -51,7 +51,7 @@ export function parseIoCsv(text: string): CsvResult {
 }
 
 export function csvTemplate(): string {
-  return "\uFEFF디바이스,이름,종류,설명\r\nX0,START_PB,푸시버튼 NO,기동 버튼\r\nX1,STOP_PB,푸시버튼 NC,정지 버튼\r\nY0,MOTOR,모터,모터 접촉기\r\n";
+  return "\uFEFF디바이스,이름,종류,설명\r\nX0,START_PB,푸시버튼 NO,기동 버튼\r\nX1,STOP_PB,푸시버튼 NO,정지 버튼\r\nY0,MOTOR,모터,모터 접촉기\r\n";
 }
 
 export function downloadCsvTemplate() {

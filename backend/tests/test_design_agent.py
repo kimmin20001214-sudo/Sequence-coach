@@ -46,6 +46,33 @@ def test_estop_missing_is_rejected():
     assert result is None and any("ESTOP_MISSING" in p for p in problems)
 
 
+def test_no_button_estop_needs_b_contact():
+    from app.contracts import Ir
+
+    req, ir, _ = load("estop_interlock")
+    estop = req.plc_config.emergency_stop.device
+    for row in req.io_list:
+        if row.device == estop:
+            row.kind = "푸시버튼 NO"
+
+    names = {r.device for r in req.io_list if r.device == estop} | {r.name for r in req.io_list if r.device == estop}
+
+    def with_kind(node, kind):
+        if node.get("type") == "contact" and node["signal"] in names:
+            node["kind"] = kind
+        for item in node.get("items", []):
+            with_kind(item, kind)
+
+    for rung in ir["rungs"]:
+        with_kind(rung["condition"], "NO")
+    _, problems = check_design(req, Ir.model_validate(ir))
+    assert any("ESTOP_MISSING" in p and "b접점" in p for p in problems)
+    for rung in ir["rungs"]:
+        with_kind(rung["condition"], "NC")
+    _, problems = check_design(req, Ir.model_validate(ir))
+    assert not any("ESTOP_MISSING" in p for p in problems)
+
+
 def test_non_q_series_is_rejected():
     from app.contracts import Ir
 

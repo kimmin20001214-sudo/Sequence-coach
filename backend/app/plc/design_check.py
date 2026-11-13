@@ -56,10 +56,12 @@ def check_design(req: StructuredRequirements, ir: Ir) -> tuple[DesignResult | No
     estop = cfg.emergency_stop
     if estop.used:
         stop_row = rows.get(estop.device.strip().upper())
+        want = "NO" if stop_row is not None and "NC" in stop_row.kind.upper() else "NC"
+        label = "NO 접점(a접점)" if want == "NO" else "NC 접점(b접점)"
         for rung in ir.rungs:
-            names = {c.signal.strip().upper() for c in _contacts(rung.condition) if c.kind == "NO"}
+            names = {c.signal.strip().upper() for c in _contacts(rung.condition) if c.kind == want}
             if stop_row is None or not names & {stop_row.device.strip().upper(), stop_row.name.strip().upper()}:
-                problems.append(f"[ESTOP_MISSING] 비상정지 {estop.device}가 렁 {rung.id}에 NO 접점으로 직렬 연결되어야 해요.")
+                problems.append(f"[ESTOP_MISSING] 비상정지 {estop.device}가 렁 {rung.id}에 {label}으로 직렬 연결되어야 해요.")
     if problems:
         return None, problems
 
