@@ -28,7 +28,7 @@ def broken_job(client):
     bad = json.loads(json.dumps(good))
     bad["rungs"][0]["condition"] = {"type": "AND", "items": [
         {"type": "contact", "kind": "NO", "signal": "X1"},
-        {"type": "contact", "kind": "NO", "signal": "X2"},
+        {"type": "contact", "kind": "NC", "signal": "X2"},
     ]}
     res = client.post(f"/agent/jobs/{job['id']}/design", headers=KEY, json={"ir": bad}).json()
     return job["id"], bad, good, res

@@ -88,8 +88,8 @@ class StructuredRequirements(BaseModel):
 
 # ── 회로 IR (#41 → #42·#44) ─────────────────────────────────────
 # 접점 NO/NC, 직렬 AND, 병렬 OR, 출력 OUT/SET/RST/TON/CTU.
-# 접점의 NO/NC는 "래더 접점 종류"(a접점/b접점)다. 정지·비상정지 버튼은 종류가 "푸시버튼 NO"든 "푸시버튼 NC"든
-# 누르면 ON으로 시험하고, 래더에서는 NC 접점(b접점)으로 읽는다. 그래서 GX Simulator2에서도 먼저 ON으로 둘 필요가 없다.
+# 접점의 NO/NC는 "래더 접점 종류"(a접점/b접점)다. 푸시버튼은 io_list 종류대로 접점을 쓴다: NO(a접점)→NO 접점,
+# NC(b접점)→NC 접점(이름은 보지 않는다). 푸시버튼은 누르면 ON으로 시험하므로 GX Simulator2에서도 먼저 ON으로 둘 필요가 없다.
 class Contact(BaseModel):
     type: Literal["contact"] = "contact"
     kind: Literal["NO", "NC"]

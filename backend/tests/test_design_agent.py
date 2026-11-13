@@ -71,6 +71,10 @@ def test_no_button_estop_needs_b_contact():
         with_kind(rung["condition"], "NC")
     _, problems = check_design(req, Ir.model_validate(ir))
     assert not any("ESTOP_MISSING" in p for p in problems)
+    assert any("KIND_MISMATCH" in p for p in problems)
+    req.io_list[[r.device for r in req.io_list].index(estop)].kind = "푸시버튼 NC (b접점)"
+    _, problems = check_design(req, Ir.model_validate(ir))
+    assert problems == []
 
 
 def test_non_q_series_is_rejected():

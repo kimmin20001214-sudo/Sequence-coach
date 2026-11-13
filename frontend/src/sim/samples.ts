@@ -10,8 +10,8 @@ export const SAMPLES: Sample[] = [
     key: 'self_hold',
     title: '자기유지 (START → 유지, STOP → 정지)',
     io: [
-      { device: 'X1', name: 'START', kind: '푸시버튼 NO', desc: '시작 버튼' },
-      { device: 'X2', name: 'STOP', kind: '푸시버튼 NO', desc: '정지 버튼' },
+      { device: 'X1', name: 'START', kind: '푸시버튼 NO (a접점)', desc: '시작 버튼' },
+      { device: 'X2', name: 'STOP', kind: '푸시버튼 NC (b접점)', desc: '정지 버튼' },
       { device: 'Y0', name: 'MOTOR', kind: '모터', desc: '컨베이어 모터' },
     ],
     conditions: [
@@ -34,8 +34,8 @@ export const SAMPLES: Sample[] = [
     key: 'on_delay',
     title: '지연 후 켜짐 (START → 3초 뒤 MOTOR)',
     io: [
-      { device: 'X1', name: 'START', kind: '푸시버튼 NO', desc: '시작 버튼' },
-      { device: 'X2', name: 'STOP', kind: '푸시버튼 NO', desc: '정지 버튼' },
+      { device: 'X1', name: 'START', kind: '푸시버튼 NO (a접점)', desc: '시작 버튼' },
+      { device: 'X2', name: 'STOP', kind: '푸시버튼 NC (b접점)', desc: '정지 버튼' },
       { device: 'Y0', name: 'LAMP', kind: '램프', desc: '경고 램프' },
       { device: 'Y1', name: 'MOTOR', kind: '모터', desc: '컨베이어 모터' },
     ],
@@ -62,9 +62,9 @@ export const SAMPLES: Sample[] = [
     key: 'estop',
     title: '비상정지 + 정/역 인터록',
     io: [
-      { device: 'X0', name: 'EMG', kind: '푸시버튼 NO', desc: '비상정지' },
-      { device: 'X1', name: 'START', kind: '푸시버튼 NO', desc: '시작' },
-      { device: 'X2', name: 'STOP', kind: '푸시버튼 NO', desc: '정지' },
+      { device: 'X0', name: 'EMG', kind: '푸시버튼 NC (b접점)', desc: '비상정지' },
+      { device: 'X1', name: 'START', kind: '푸시버튼 NO (a접점)', desc: '시작' },
+      { device: 'X2', name: 'STOP', kind: '푸시버튼 NC (b접점)', desc: '정지' },
       { device: 'Y0', name: 'MOTOR_FWD', kind: '모터', desc: '정방향' },
       { device: 'Y1', name: 'MOTOR_REV', kind: '모터', desc: '역방향' },
     ],
