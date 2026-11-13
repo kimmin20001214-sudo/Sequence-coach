@@ -116,7 +116,7 @@ export function inputRows(io: IoRow[]) {
   return io.filter((r) => /^X/i.test(r.device)).map((r) => ({
     ...r,
     device: r.device.toUpperCase(),
-    normallyOn: /NC/.test(r.kind),
+    normallyOn: false,
     momentary: /푸시|버튼|push/i.test(r.kind),
   }))
 }

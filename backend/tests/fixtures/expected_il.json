@@ -1,5 +1,5 @@
 {
-  "self_hold": ["LD X1", "OR Y0", "AND X2", "OUT Y0", "END"],
+  "self_hold": ["LD X1", "OR Y0", "ANI X2", "OUT Y0", "END"],
   "on_delay": ["LD X1", "OUT Y0", "LD Y0", "OUT T0 K30", "LD T0", "OUT Y1", "END"],
-  "estop_interlock": ["LD X0", "LD X1", "OR Y0", "ANB", "AND X2", "ANI Y1", "OUT Y0", "END"]
+  "estop_interlock": ["LDI X0", "LD X1", "OR Y0", "ANB", "ANI X2", "ANI Y1", "OUT Y0", "END"]
 }

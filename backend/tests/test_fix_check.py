@@ -20,8 +20,8 @@ def interlock_pair():
     fixed.rungs.append(Rung(
         id="R2", covers=["C2", "C3"], condition={
             "type": "AND", "items": [
-                {"type": "contact", "kind": "NO", "signal": "X0"},
-                {"type": "contact", "kind": "NO", "signal": "X2"},
+                {"type": "contact", "kind": "NC", "signal": "X0"},
+                {"type": "contact", "kind": "NC", "signal": "X2"},
                 {"type": "contact", "kind": "NO", "signal": "X3"},
                 {"type": "contact", "kind": "NC", "signal": "Y0"},
             ],
