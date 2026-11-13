@@ -3,6 +3,7 @@
 분석 에이전트는 틀 이름과 신호 이름만 고르고, 시각·기대값 계산은 이 코드가 한다.
 모르는 신호·잘못된 값은 CheckError로 알려서 에이전트가 고치거나 백엔드가 버리게 한다.
 """
+import re
 from collections.abc import Callable
 
 from ..contracts import Check, StructuredRequirements
@@ -62,6 +63,10 @@ class _Ctx:
 
     def nc(self, dev: str) -> bool:
         return "NC" in self.rows[dev].kind.upper()
+
+    def stop(self, dev: str) -> bool:
+        row = self.rows[dev]
+        return self.nc(dev) or bool(re.search(r"정지|비상|STOP|EMG|ESTOP", f"{row.name} {row.desc}", re.IGNORECASE))
 
     def idle(self, dev: str) -> int:
         return 1 if self.nc(dev) else 0
@@ -191,8 +196,8 @@ def _timed_on(ctx: _Ctx, cid: str, c: Check) -> list[dict]:
 
 
 def _sweep(ctx: _Ctx, exclude: set[str]) -> tuple[_Timeline, int]:
-    """정지(NC) 입력을 뺀 입력을 하나씩·둘씩·전부·차례로 눌러 보는 입력 탐색."""
-    xs = [d for d in ctx.x_devs if not ctx.nc(d) and d not in exclude][:8]
+    """정지·비상정지 입력을 뺀 입력을 하나씩·둘씩·전부·차례로 눌러 보는 입력 탐색."""
+    xs = [d for d in ctx.x_devs if not ctx.stop(d) and d not in exclude][:8]
     hold = ctx.hold_ms
     groups = [[x] for x in xs]
     if len(xs) <= 4 or hold <= 1000:

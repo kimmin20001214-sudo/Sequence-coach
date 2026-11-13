@@ -12,8 +12,8 @@
           "emergency_stop": { "used": true, "device": "X2" },
           "io_list": [
             { "device": "X0", "name": "START_PB", "kind": "푸시버튼 NO", "desc": "기동 버튼" },
-            { "device": "X1", "name": "STOP_PB", "kind": "푸시버튼 NC", "desc": "정지 버튼" },
-            { "device": "X2", "name": "EMG", "kind": "푸시버튼 NC", "desc": "비상정지" },
+            { "device": "X1", "name": "STOP_PB", "kind": "푸시버튼 NO", "desc": "정지 버튼" },
+            { "device": "X2", "name": "EMG", "kind": "푸시버튼 NO", "desc": "비상정지" },
             { "device": "Y0", "name": "MOTOR", "kind": "모터", "desc": "모터 접촉기" }
           ]
         },
@@ -36,9 +36,9 @@
           "timer_unit_ms": 100,
           "io_list": [
             { "device": "X0", "name": "START_PB", "kind": "푸시버튼 NO", "desc": "기동" },
-            { "device": "X1", "name": "STOP_PB", "kind": "푸시버튼 NC", "desc": "정지" },
+            { "device": "X1", "name": "STOP_PB", "kind": "푸시버튼 NO", "desc": "정지" },
             { "device": "X2", "name": "END_SENSOR", "kind": "센서", "desc": "끝단 물체 감지" },
-            { "device": "X3", "name": "EMG", "kind": "푸시버튼 NC", "desc": "비상정지" },
+            { "device": "X3", "name": "EMG", "kind": "푸시버튼 NO", "desc": "비상정지" },
             { "device": "Y0", "name": "CONVEYOR", "kind": "모터", "desc": "컨베이어 모터" },
             { "device": "Y1", "name": "RUN_LAMP", "kind": "램프", "desc": "운전 표시등" }
           ]
@@ -63,7 +63,7 @@
             { "device": "X0", "name": "START_PB", "kind": "푸시버튼 NO", "desc": "사이클 시작" },
             { "device": "X1", "name": "LS_FWD", "kind": "리미트스위치", "desc": "전진 끝 감지" },
             { "device": "X2", "name": "LS_BWD", "kind": "리미트스위치", "desc": "후진 끝 감지" },
-            { "device": "X3", "name": "EMG", "kind": "푸시버튼 NC", "desc": "비상정지" },
+            { "device": "X3", "name": "EMG", "kind": "푸시버튼 NO", "desc": "비상정지" },
             { "device": "Y0", "name": "SOL_FWD", "kind": "솔레노이드", "desc": "전진 밸브" },
             { "device": "Y1", "name": "SOL_BWD", "kind": "솔레노이드", "desc": "후진 밸브" }
           ]
