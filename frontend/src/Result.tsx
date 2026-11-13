@@ -181,6 +181,7 @@ function downloadCsv(il: string[], cpu?: string) {
 }
 
 export function Design({ d, cpu }: { d: DesignData; cpu?: string }) {
+  const ncText = d.io_used.filter((r) => /NC/i.test(r.kind)).map((r) => `${r.device}(${r.name})`).join(", ");
   return (
     <section className="block">
       <h3>설계 결과</h3>
@@ -208,19 +209,23 @@ export function Design({ d, cpu }: { d: DesignData; cpu?: string }) {
           </tbody>
         </table>
       </div>
+      {ncText && <p className="notice">NC 입력({ncText})은 누르지 않을 때 ON이에요. GX Simulator2로 시험할 때는 먼저 ON으로 두고 시작하세요. 모의 실행 화면은 자동으로 반영돼요.</p>}
 
       <div className="folds">
         <Fold title="명령어(IL) 보기">
           <pre>{d.il.join("\n")}</pre>
           <button type="button" className="btn ghost" onClick={() => downloadCsv(d.il, cpu)}>GX Works2 파일 받기 (.csv)</button>
+          {ncText && <p className="notice">GX Simulator2 시험 전: {ncText}는 NC라서 먼저 ON으로 두세요.</p>}
         </Fold>
         <Fold title="GX Works2에서 여는 방법">
           <ol>
             <li>GX Works2에서 새 프로젝트를 만들어요(QCPU Q모드{cpu ? `, ${cpu.replace(/CPU$/, "")}` : ""}, 래더). 입력한 CPU와 같게 골라요.</li>
             <li>메뉴 <b>Edit → Read from CSV File</b>에서 받은 파일을 선택해요.</li>
             <li>래더로 변환(F4)하고 오류가 없는지 확인해요.</li>
+            <li>GX Simulator2로 시험할 때는 {ncText ? <>아래 NC 입력을 <b>먼저 ON</b>으로 둔 뒤 시작해요.</> : "입력을 켜고 꺼 보며 출력을 확인해요."}</li>
           </ol>
-          <p className="notice">아직 실제 GX Works2에서 시험 중이에요. 열리지 않으면 알려 주세요.</p>
+          {ncText && <p className="notice">NC 입력: {ncText}. NC 버튼은 누르지 않을 때 ON이고, 누르면 OFF(꺼짐)가 돼요. 모의 실행 화면에서는 자동으로 반영돼요.</p>}
+          <p className="notice">자기유지·타이머 회로는 GX Works2에서 읽히는 것을 확인했어요. 다른 명령은 아직 시험 중이에요.</p>
         </Fold>
         {d.assumptions.length > 0 && <Fold title="가정" count={d.assumptions.length}><ul>{d.assumptions.map((a) => <li key={a}>{a}</li>)}</ul></Fold>}
         {d.limitations.length > 0 && <Fold title="제한 사항" count={d.limitations.length}><ul>{d.limitations.map((a) => <li key={a}>{a}</li>)}</ul></Fold>}
