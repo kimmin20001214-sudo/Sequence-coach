@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { fetchAgentMode, fetchStatus, runProject, ApiError, type JobStatus } from "./api";
+import { fetchAgentMode, fetchProject, fetchStatus, runProject, ApiError, type JobStatus } from "./api";
 import { Card } from "./ui";
 import { Conditions, Design, Fixes, Simulation, Stepper, Summary, type DesignData, type VerificationData } from "./Result";
 import { CriteriaButton } from "./Criteria";
@@ -75,6 +75,7 @@ export default function RunStep({ projectId, page, onPage }: { projectId: string
   const [status, setStatus] = useState<JobStatus | null>(null);
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
+  const [cpu, setCpu] = useState<string | undefined>();
   const now = useNow(running);
   const { times, total } = stepTimes(status?.events ?? [], now);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -96,6 +97,7 @@ export default function RunStep({ projectId, page, onPage }: { projectId: string
 
   useEffect(() => {
     fetchAgentMode().then(setMode).catch(() => setMode(null));
+    fetchProject(projectId).then((p) => setCpu(p.plc_config?.cpu)).catch(() => setCpu(undefined));
     poll(projectId);
     return () => window.clearTimeout(timer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -147,7 +149,7 @@ export default function RunStep({ projectId, page, onPage }: { projectId: string
             {escalateReason && <div className="banner err" role="alert">{escalateReason}</div>}
             <Conditions v={verification} />
             {fixes.length > 0 && <Fixes events={fixes} />}
-            {design && <Design d={design} />}
+            {design && <Design d={design} cpu={cpu} />}
           </>
         ) : (
           <p className="notice">아직 검증 결과가 없어요. 먼저 이전 단계에서 분석을 실행해 주세요.</p>

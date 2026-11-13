@@ -155,7 +155,32 @@ export function Simulation({ d, v }: { d: DesignData; v?: VerificationData }) {
   );
 }
 
-export function Design({ d }: { d: DesignData }) {
+// GX Works2의 "Write to CSV File"이 만드는 형식(UTF-16 탭 구분)을 따라 만든다.
+function downloadCsv(il: string[], cpu?: string) {
+  const q = (s: string) => `"${s}"`;
+  const model = (cpu ?? "").replace(/CPU$/, "");
+  const rows = [
+    q("(Untitled Project)"),
+    [q("PLC Information:"), q(`QCPU (Q mode)${model ? " " + model : ""}`)].join("\t"),
+    ["Step No.", "Line Statement", "Instruction", "I/O(Device)", "Blank", "PI Statement", "Note"].map(q).join("\t"),
+    ...il.map((line, i) => {
+      const [op, ...rest] = line.trim().split(/\s+/);
+      return [String(i), "", op, rest.join(" "), "", "", ""].map(q).join("\t");
+    }),
+  ];
+  const text = rows.join("\r\n") + "\r\n";
+  const buf = new Uint16Array(text.length + 1);
+  buf[0] = 0xfeff;
+  for (let i = 0; i < text.length; i++) buf[i + 1] = text.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([buf], { type: "text/csv" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "circuit-gxworks2.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function Design({ d, cpu }: { d: DesignData; cpu?: string }) {
   return (
     <section className="block">
       <h3>설계 결과</h3>
@@ -185,7 +210,18 @@ export function Design({ d }: { d: DesignData }) {
       </div>
 
       <div className="folds">
-        <Fold title="명령어(IL) 보기"><pre>{d.il.join("\n")}</pre></Fold>
+        <Fold title="명령어(IL) 보기">
+          <pre>{d.il.join("\n")}</pre>
+          <button type="button" className="btn ghost" onClick={() => downloadCsv(d.il, cpu)}>GX Works2 파일 받기 (.csv)</button>
+        </Fold>
+        <Fold title="GX Works2에서 여는 방법">
+          <ol>
+            <li>GX Works2에서 새 프로젝트를 만들어요(QCPU Q모드{cpu ? `, ${cpu.replace(/CPU$/, "")}` : ""}, 래더). 입력한 CPU와 같게 골라요.</li>
+            <li>메뉴 <b>Edit → Read from CSV File</b>에서 받은 파일을 선택해요.</li>
+            <li>래더로 변환(F4)하고 오류가 없는지 확인해요.</li>
+          </ol>
+          <p className="notice">아직 실제 GX Works2에서 시험 중이에요. 열리지 않으면 알려 주세요.</p>
+        </Fold>
         {d.assumptions.length > 0 && <Fold title="가정" count={d.assumptions.length}><ul>{d.assumptions.map((a) => <li key={a}>{a}</li>)}</ul></Fold>}
         {d.limitations.length > 0 && <Fold title="제한 사항" count={d.limitations.length}><ul>{d.limitations.map((a) => <li key={a}>{a}</li>)}</ul></Fold>}
       </div>
