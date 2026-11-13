@@ -41,7 +41,7 @@
         {
           "device": "X2",
           "name": "STOP",
-          "kind": "푸시버튼 NO",
+          "kind": "푸시버튼 NC (b접점)",
           "desc": "정지 버튼"
         },
         {
@@ -330,7 +330,7 @@
         {
           "device": "X0",
           "name": "EMG",
-          "kind": "푸시버튼 NO",
+          "kind": "푸시버튼 NC (b접점)",
           "desc": "비상정지"
         },
         {
@@ -342,7 +342,7 @@
         {
           "device": "X2",
           "name": "STOP",
-          "kind": "푸시버튼 NO",
+          "kind": "푸시버튼 NC (b접점)",
           "desc": "정지"
         },
         {

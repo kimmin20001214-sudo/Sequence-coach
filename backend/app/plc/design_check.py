@@ -53,6 +53,16 @@ def check_design(req: StructuredRequirements, ir: Ir) -> tuple[DesignResult | No
     for row in req.io_list:
         rows[row.device.strip().upper()] = row
         rows[row.name.strip().upper()] = row
+    # 푸시버튼은 설정한 종류대로 접점을 쓴다: NO는 a접점, NC는 b접점 (이름과 무관).
+    for rung in ir.rungs:
+        for c in _contacts(rung.condition):
+            row = rows.get(c.signal.strip().upper())
+            if row is None or "푸시버튼" not in row.kind:
+                continue
+            want = "NC" if "NC" in row.kind.upper() else "NO"
+            if c.kind != want:
+                label = "b접점(NC)" if want == "NC" else "a접점(NO)"
+                problems.append(f"[KIND_MISMATCH] {row.device}는 {row.kind}라서 {label}으로 써야 해요.                 (단 {rung.id})")
     estop = cfg.emergency_stop
     if estop.used:
         stop_row = rows.get(estop.device.strip().upper())

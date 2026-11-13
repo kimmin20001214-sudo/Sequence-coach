@@ -6,7 +6,7 @@ from conftest import valid_project
 
 KEY = {"X-API-Key": "test-key"}
 IO = [
-    {"device": "X0", "name": "EMG", "kind": "푸시버튼 NO", "desc": ""},
+    {"device": "X0", "name": "EMG", "kind": "푸시버튼 NC (b접점)", "desc": ""},
     {"device": "X1", "name": "START", "kind": "푸시버튼 NO", "desc": ""},
     {"device": "Y0", "name": "MOTOR", "kind": "모터", "desc": ""},
 ]

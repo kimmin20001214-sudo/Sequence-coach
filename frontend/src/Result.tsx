@@ -208,7 +208,7 @@ export function Design({ d, cpu }: { d: DesignData; cpu?: string }) {
           </tbody>
         </table>
       </div>
-      <p className="notice">정지·비상정지 버튼은 누르면 ON이고, 회로에서는 b접점으로 쓰여요. GX Simulator2에서도 안 눌렀을 때(OFF)부터 그대로 시험할 수 있어요.</p>
+      <p className="notice">푸시버튼은 설정한 종류대로 NO는 a접점, NC는 b접점으로 설계돼요. 누르면 ON이라 GX Simulator2에서도 안 눌렀을 때(OFF)부터 그대로 시험할 수 있어요.</p>
 
       <div className="folds">
         <Fold title="명령어(IL) 보기">
