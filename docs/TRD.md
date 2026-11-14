@@ -8,7 +8,7 @@
 | 문서 유형 | 기술 요구사항 정의서 (TRD) |
 | 버전 | v2 (구현 현황 반영, 2026-11-11) |
 | 관련 문서 | [PRD](PRD.md), [Copilot Studio 연결 가이드](copilot-studio.md), [backend/README](../backend/README.md) |
-| 구현 상태 | 입력·분석·설계·검증·수정·결과·모의 실행 구현됨. IL 파일(#44)과 통합·배포(#45)는 예정 |
+| 구현 상태 | 입력·분석·설계·검증·수정·결과·모의 실행 구현됨. IL 파일(#44)과 파일 받기 화면 구현됨. 통합·배포(#45)는 안전 고지 테스트·사용자 가이드·배포 문서까지 했고, 로그인·접근 권한·배포는 예정 |
 
 ## 2. 기술 원칙
 
@@ -131,7 +131,7 @@ INPUT_VALIDATED -> ANALYZING -> DESIGNING -> VERIFYING -> COMPLETED -> GENERATIN
 
 | 항목 | 설명 |
 | --- | --- |
-| #44 GX Works 파일 | 결과 화면에서 GX Works2용 CSV 받기(PR #103). 자기유지·타이머 회로를 GX Works2 체험판(Q03UD)에서 읽어 래더 표시를 확인. 시험용 CSV 3종으로 LDI·ORI·ORB·ANB, 카운터 `OUT C0 K5`·`RST C0`·SET/RST, 분기 MPS/MRD/MPP도 Q03UD에서 읽혀 래더로 표시되는 것을 확인(2026-11-14, 사용자 확인). GX Simulator2 동작 검증은 사용자가 완료했다고 알려 옴(상세 기록 없음). 설계는 입력부(X→내부릴레이 M)와 출력부(M→Y)로 나눠요. 서버가 IO_SPLIT으로 검사해요. 푸시버튼은 설정한 종류대로 NO는 a접점, NC는 b접점으로 설계하고 누르면 ON으로 다뤄요. 다른 CPU는 미확인. 영상은 만들지 않음. 옛 PoC 브랜치 `feat/44-gxworks`(PR #64)는 참고용 |
+| #44 GX Works 파일 | 결과 화면에서 GX Works2용 CSV 받기(PR #103). 자기유지·타이머 회로를 GX Works2 체험판(Q03UD)에서 읽어 래더 표시를 확인. 시험용 CSV 3종으로 LDI·ORI·ORB·ANB, 카운터 `OUT C0 K5`·`RST C0`·SET/RST, 분기 MPS/MRD/MPP도 Q03UD에서 읽혀 래더로 표시되는 것을 확인(2026-11-14, 사용자 확인). GX Simulator2 동작 검증은 사용자가 완료했다고 알려 옴(상세 기록 없음). 설계는 입력부(X→내부릴레이 M)와 출력부(M→Y)로 나눠요. 서버가 IO_SPLIT으로 검사해요. 푸시버튼은 설정한 종류대로 NO는 a접점, NC는 b접점으로 설계하고 누르면 ON으로 다뤄요. CPU 이름만 다른 시험 파일(Q02H 등)을 Q03UDV 프로젝트에서 열어도 읽히고 시뮬레이션이 같게 동작함을 확인(2026-11-14, 사용자 확인). CSV에서 CPU별로 다른 부분은 CPU 이름 한 줄뿐이에요. CPU별 입출력·메모리 용량은 별개예요. 영상은 만들지 않음. 옛 PoC 브랜치 `feat/44-gxworks`(PR #64)는 참고용 |
 | #45 통합·배포 | Render 배포, 비밀값 교체, DB 교체 검토 |
 | `off_delay` 시험 틀 | 오프딜레이를 `custom` 대신 전용 틀로 검증 |
 | 시뮬레이터 | PLC 설정(CPU 성능 등) 반영 |
