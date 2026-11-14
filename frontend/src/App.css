@@ -190,3 +190,13 @@ select:disabled { background: var(--bg); color: var(--muted); }
 .pill.low:hover::after,.pill.low:focus::after{opacity:1}
 .run-stepper .lbl-time{font-size:16px;font-weight:700;color:var(--primary);font-variant-numeric:tabular-nums}
 .elapsed.total{font-size:18px;font-weight:700;color:#1c7a43}
+
+.gxg-back{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000}
+.gxg{background:#fff;border-radius:14px;padding:20px 24px;width:min(760px,94vw);max-height:92vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.gxg-head{display:flex;justify-content:space-between;align-items:center}
+.gxg-x{border:0;background:none;font-size:26px;cursor:pointer}
+.gxg h3{margin:8px 0}
+.gxg-img,.gxg-ph{width:100%;border:1px solid var(--line);border-radius:8px}
+.gxg-ph{height:280px;display:flex;align-items:center;justify-content:center;background:#f3f4f6;color:#6b7280}
+.gxg-nav{display:flex;justify-content:space-between;align-items:center}
+.gxg-nav .btn{margin-top:0}

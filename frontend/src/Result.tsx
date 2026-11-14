@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import type { JobStatus } from "./api";
+import { GxGuide } from "./GxGuide";
 import type { Ir } from "./sim/engine";
 
 const PlcSimulator = lazy(() => import("./sim/PlcSimulator"));
@@ -181,6 +182,7 @@ function downloadCsv(il: string[], cpu?: string) {
 }
 
 export function DownloadPanel({ d, cpu }: { d: DesignData; cpu?: string }) {
+  const [guide, setGuide] = useState(false);
   return (
     <section className="block">
       <p className="notice">자동 생성된 초안이에요. 실제 장비에 넣기 전에 반드시 GX Works2 등 실제 프로그램에서 확인하세요.</p>
@@ -188,13 +190,8 @@ export function DownloadPanel({ d, cpu }: { d: DesignData; cpu?: string }) {
         <Fold title="명령어(IL) 보기"><pre>{d.il.join("\n")}</pre></Fold>
       </div>
       <button type="button" className="btn primary" onClick={() => downloadCsv(d.il, cpu)}>GX Works2 파일 받기 (.csv)</button>
-      <h4>GX Works2에서 여는 방법</h4>
-      <ol>
-        <li>GX Works2에서 새 프로젝트를 만들어요(QCPU Q모드{cpu ? `, ${cpu.replace(/CPU$/, "")}` : ""}, 래더). 입력한 CPU와 같게 골라요.</li>
-        <li>메뉴 <b>Edit → Read from CSV File</b>에서 받은 파일을 선택해요.</li>
-        <li>래더로 변환(F4)하고 오류가 없는지 확인해요.</li>
-        <li>GX Simulator2로 시험할 때는 입력을 켜고 꺼 보며 출력을 확인해요. 정지 버튼은 누르면 ON이에요.</li>
-      </ol>
+      <button type="button" className="btn ghost" onClick={() => setGuide(true)}>GX Works2에서 여는 방법 보기</button>
+      {guide && <GxGuide onClose={() => setGuide(false)} />}
       <p className="notice">Q03UD에서 자기유지·타이머·카운터·SET/RST·분기 회로가 읽히는 것을 확인했어요. 다른 CPU 기종은 아직 확인하지 못했어요.</p>
     </section>
   );
