@@ -170,7 +170,7 @@ function Wizard() {
             </>
           )}
           {step > 0 && (
-            <div className="actions home-row"><button type="button" className="btn ghost" onClick={() => go(0)} aria-label="처음으로" title="처음으로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8" /><path d="M5 10v10h5v-6h4v6h5V10" /></svg></button><span /></div>
+            <div className="actions home-row"><button type="button" className="btn ghost" onClick={() => go(0)} aria-label="처음으로" title="처음으로"style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8" /><path d="M5 10v10h5v-6h4v6h5V10" /></svg>처음으로</button><span /></div>
           )}
         </main>
       </div>
