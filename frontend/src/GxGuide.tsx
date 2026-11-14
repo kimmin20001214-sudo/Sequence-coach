@@ -2,11 +2,13 @@ import { useState } from "react";
 
 // 스크린샷은 frontend/public/guide/ 에 step1.png ... 이름으로 넣으면 자동으로 보여요.
 const STEPS = [
-  { title: "새 프로젝트 만들기", text: "GX Works2에서 새 프로젝트를 만들어요. 시리즈는 QCPU(Q모드), 기종은 설계 때 입력한 CPU(예: Q03UD), 언어는 래더로 골라요.", img: "step1.png" },
-  { title: "CSV 파일 열기 메뉴", text: "메뉴에서 Edit → Read from CSV File을 눌러요.", img: "step2.png" },
-  { title: "받은 파일 선택", text: "'파일 받기'에서 받은 .csv 파일을 골라 열어요.", img: "step3.png" },
-  { title: "래더로 변환", text: "읽은 명령어를 래더로 바꾸려면 F4를 눌러요. 오류 메시지가 없는지 확인해요.", img: "step4.png" },
-  { title: "GX Simulator2로 시험", text: "시뮬레이터를 켜고 입력을 ON/OFF 해 보며 출력이 설계대로 움직이는지 확인해요. 정지 버튼은 누르면 ON이에요.", img: "step5.png" },
+  { title: "새 프로젝트 만들기", text: "GX Works2에서 새 프로젝트를 만들어요. 프로젝트 종류는 Simple Project, 시리즈는 QCPU (Q mode), 기종은 설계 때 입력한 CPU(예: Q03UD), 언어는 Ladder로 골라요.", img: "step1.png" },
+  { title: "CSV 읽기 메뉴", text: "위쪽 메뉴에서 Edit → Read from CSV File을 눌러요.", img: "step2.png" },
+  { title: "받은 CSV 파일 선택", text: "'파일 받기'에서 받은 .csv 파일을 찾아서 열어요. 읽고 나서 래더로 바뀌지 않으면 F4(변환)를 눌러요.", img: "step3.png" },
+  { title: "시뮬레이션 시작 버튼", text: "도구 모음에서 빨간 네모로 표시한 시뮬레이션 시작 버튼을 눌러요.", img: "step4.png" },
+  { title: "시뮬레이터 정상 작동 확인", text: "GX Simulator2 창이 뜨고 RUN이 선택되어 MODE와 RUN LED가 초록색이면 정상이에요.", img: "step5.png" },
+  { title: "시뮬레이션 화면 (동작 전)", text: "입력이 모두 OFF라서 접점이 비어 있고 출력(Y0)도 꺼져 있어요.", img: "step6.png" },
+  { title: "시뮬레이션 화면 (동작 중)", text: "접점을 선택하고 Shift + Enter를 누르면 그 디바이스를 ON/OFF할 수 있어요. 켜지면 파란색으로 채워지고 출력도 따라 켜져요.", img: "step7.png" },
 ];
 
 export function GxGuide({ onClose }: { onClose: () => void }) {
