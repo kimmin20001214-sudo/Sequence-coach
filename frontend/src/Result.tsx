@@ -183,6 +183,11 @@ function downloadCsv(il: string[], cpu?: string) {
 
 export function DownloadPanel({ d, cpu }: { d: DesignData; cpu?: string }) {
   const [guide, setGuide] = useState(false);
+  const [toast, setToast] = useState(0);
+  const save = () => {
+    downloadCsv(d.il, cpu);
+    setToast((n) => n + 1);
+  };
   return (
     <section className="block">
       <p className="notice">자동 생성된 초안이에요. 실제 장비에 넣기 전에 반드시 GX Works2 등 실제 프로그램에서 확인하세요.</p>
@@ -190,10 +195,16 @@ export function DownloadPanel({ d, cpu }: { d: DesignData; cpu?: string }) {
         <Fold title="명령어(IL) 보기"><pre>{d.il.join("\n")}</pre></Fold>
       </div>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 14, marginTop: 14 }}>
-        <button type="button" className="btn primary" onClick={() => downloadCsv(d.il, cpu)}>GX Works2 파일 받기 (.csv)</button>
+        <button type="button" className="btn primary" onClick={save}>GX Works2 파일 받기 (.csv)</button>
         <button type="button" className="btn primary" onClick={() => setGuide(true)}>GX Works2에서 여는 방법 보기</button>
       </div>
       {guide && <GxGuide onClose={() => setGuide(false)} />}
+      {toast > 0 && (
+        <div key={toast} className="toast" role="status">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+          저장했어요.
+        </div>
+      )}
     </section>
   );
 }
