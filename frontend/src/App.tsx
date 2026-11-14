@@ -151,7 +151,7 @@ function Wizard({ user, onLogout }: { user: User; onLogout: () => void }) {
         {user.username && (
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, fontSize: 13 }}>
             <span>{user.username}</span>
-            <button type="button" className="btn ghost" style={{ marginTop: 0, padding: "6px 12px" }} onClick={onLogout}>로그아웃</button>
+            <button type="button" className="btn primary" style={{ marginTop: 0, padding: "6px 14px" }} onClick={onLogout}>로그아웃</button>
           </div>
         )}
         <div className="brand">
