@@ -79,6 +79,17 @@ def test_agent_api_still_uses_api_key_only(secured, monkeypatch):
     assert secured.get("/agent-spec.json").status_code == 200
 
 
+def test_production_server_seeds_accounts_and_logs_in(tmp_path, monkeypatch):
+    from app.server import server
+    monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "p.sqlite3"))
+    monkeypatch.setenv("ACCOUNTS", "boss:long-enough-pw:admin")
+    monkeypatch.delenv("AUTH_DISABLED", raising=False)
+    with TestClient(server) as c:
+        assert c.get("/api/meta").status_code == 401
+        assert c.post("/api/auth/login", json={"username": "boss", "password": "long-enough-pw"}).status_code == 200
+        assert c.get("/api/meta").status_code == 200
+
+
 def test_seed_accounts_from_env(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "s.sqlite3"))
     monkeypatch.setenv("ACCOUNTS", "Boss:long-enough-pw:admin, s01:long-enough-pw ,bad:short,s01:other-password")
