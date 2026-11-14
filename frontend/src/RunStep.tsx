@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchAgentMode, fetchProject, fetchStatus, runProject, ApiError, type JobStatus } from "./api";
 import { Card } from "./ui";
-import { Conditions, Design, Fixes, Simulation, Stepper, Summary, type DesignData, type VerificationData } from "./Result";
+import { Conditions, Design, DownloadPanel, Fixes, Simulation, Stepper, Summary, type DesignData, type VerificationData } from "./Result";
 import { CriteriaButton } from "./Criteria";
 
 const STEPS = [
@@ -149,7 +149,7 @@ export default function RunStep({ projectId, page, onPage }: { projectId: string
             {escalateReason && <div className="banner err" role="alert">{escalateReason}</div>}
             <Conditions v={verification} />
             {fixes.length > 0 && <Fixes events={fixes} />}
-            {design && <Design d={design} cpu={cpu} />}
+            {design && <Design d={design} />}
           </>
         ) : (
           <p className="notice">아직 검증 결과가 없어요. 먼저 이전 단계에서 분석을 실행해 주세요.</p>
@@ -163,7 +163,16 @@ export default function RunStep({ projectId, page, onPage }: { projectId: string
     return (
       <Card title="모의 실행" desc="설계된 회로를 직접 눌러 보며 동작을 확인해요.">
         {design ? <Simulation d={design} v={verification} /> : <p className="notice">아직 설계 결과가 없어요. 먼저 분석을 실행해 주세요.</p>}
-        {nav(["← 검증 결과", 3], null)}
+        {nav(["← 검증 결과", 3], design?.ir ? ["파일 받기 →", 5] : null)}
+      </Card>
+    );
+  }
+
+  if (page === 5) {
+    return (
+      <Card title="파일 받기" desc="완성된 회로를 GX Works2에서 열 수 있는 CSV 파일로 받아요.">
+        {design ? <DownloadPanel d={design} cpu={cpu} /> : <p className="notice">아직 설계 결과가 없어요. 먼저 분석을 실행해 주세요.</p>}
+        {nav(["← 모의 실행", 4], null)}
       </Card>
     );
   }

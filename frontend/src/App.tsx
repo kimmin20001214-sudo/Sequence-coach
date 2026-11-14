@@ -10,7 +10,7 @@ import RunStep from "./RunStep";
 import { Card } from "./ui";
 import "./App.css";
 
-const STEPS = ["기본 설정", "동작 조건", "설계 요청", "검증 결과", "모의 실행"];
+const STEPS = ["기본 설정", "동작 조건", "설계 요청", "검증 결과", "모의 실행", "파일 받기"];
 const LAST_PROJECT = "plc.lastProject";
 
 export default function App() {
