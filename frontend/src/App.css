@@ -162,8 +162,8 @@ select:disabled { background: var(--bg); color: var(--muted); }
 .fold-body pre{margin:0;overflow-x:auto}
 @media (max-width:600px){.cond{flex-wrap:wrap}.rungs li{flex-wrap:wrap}}
 .modal-back{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000}
-.modal{background:var(--surface);border-radius:var(--radius);border-top:6px solid var(--primary);padding:24px 28px;max-width:95vw;width:max-content;box-shadow:0 10px 40px rgba(0,0,0,.3);text-align:center;color:var(--text);animation:modal-shake .6s ease-out}
-@keyframes modal-shake{0%{transform:scale(.92);opacity:0}25%{transform:translateX(-10px);opacity:1}45%{transform:translateX(9px)}65%{transform:translateX(-6px)}85%{transform:translateX(4px)}100%{transform:none}}
+.modal{background:var(--surface);border-radius:var(--radius);border-top:6px solid var(--primary);padding:24px 28px;max-width:95vw;width:max-content;box-shadow:0 10px 40px rgba(0,0,0,.3);text-align:center;color:var(--text);animation:modal-shake .4s ease-out}
+@keyframes modal-shake{0%{transform:scale(.95);opacity:0}10%{transform:translateX(-7px);opacity:1}25%{transform:translateX(7px)}40%{transform:translateX(-6px)}55%{transform:translateX(6px)}70%{transform:translateX(-4px)}85%{transform:translateX(3px)}100%{transform:none}}
 .modal h3{margin:0 0 12px;color:var(--text);font-size:1.35rem;display:flex;align-items:center;justify-content:center;gap:8px}
 .modal h3 svg{flex:none}
 .modal .warn-line{display:inline-block;margin-top:6px;color:var(--text);font-size:1.15em;font-weight:800}
