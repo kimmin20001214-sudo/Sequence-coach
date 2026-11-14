@@ -26,12 +26,13 @@ def validate_io_list(rows: list[IoRow], spec: dict | None, cpu: dict | None) -> 
             errors[i] = f"디바이스 형식이 올바르지 않아요. ({_notation_label(spec)} X/Y)"
             continue
         kind, num = parsed
+        key = f"{kind}{num}"
         limit = cpu and (cpu["max_x"] if kind == "X" else cpu["max_y"])
         if limit and num >= limit:
             errors[i] = f"{dev}은(는) {limit}점 범위를 벗어나요."
-        elif dev in seen:
+        elif key in seen:
             errors[i] = f"{dev}이(가) 중복돼요."
-        seen.add(dev)
+        seen.add(key)
     return errors
 
 

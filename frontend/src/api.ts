@@ -41,7 +41,7 @@ async function call(path: string, init?: RequestInit): Promise<Response> {
   } catch {
     throw new ApiError("서버에 연결할 수 없어요. 백엔드가 실행 중인지 확인해 주세요.");
   }
-  if (!r.ok) throw new ApiError(`요청에 실패했어요. (${r.status})`);
+  if (!r.ok) throw new ApiError(r.status === 422 ? "입력 내용의 형식이 올바르지 않아요. (422)" : `요청에 실패했어요. (${r.status})`);
   return r;
 }
 

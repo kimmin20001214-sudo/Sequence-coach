@@ -36,9 +36,10 @@ export function validateIoList(list: IoRow[], spec?: SeriesSpec, cpu?: CpuSpec):
       return;
     }
     const max = cpu && (p.kind === "X" ? cpu.max_x : cpu.max_y);
+    const key = `${p.kind}${p.num}`;
     if (max !== undefined && p.num >= max) errors[i] = `${dev}은(는) ${max}점 범위를 벗어나요.`;
-    else if (seen.has(dev)) errors[i] = `${dev}이(가) 중복돼요.`;
-    seen.add(dev);
+    else if (seen.has(key)) errors[i] = `${dev}이(가) 중복돼요.`;
+    seen.add(key);
   });
   return errors;
 }
