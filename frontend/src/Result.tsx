@@ -184,8 +184,9 @@ export function DownloadPanel({ d, cpu }: { d: DesignData; cpu?: string }) {
   return (
     <section className="block">
       <p className="notice">자동 생성된 초안이에요. 실제 장비에 넣기 전에 반드시 GX Works2 등 실제 프로그램에서 확인하세요.</p>
-      <h4>명령어(IL)</h4>
-      <pre>{d.il.join("\n")}</pre>
+      <div className="folds">
+        <Fold title="명령어(IL) 보기"><pre>{d.il.join("\n")}</pre></Fold>
+      </div>
       <button type="button" className="btn primary" onClick={() => downloadCsv(d.il, cpu)}>GX Works2 파일 받기 (.csv)</button>
       <h4>GX Works2에서 여는 방법</h4>
       <ol>
