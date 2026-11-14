@@ -4,7 +4,7 @@ import { Card } from "./ui";
 
 interface Props {
   current: () => TemplatePayload;
-  onLoad: (p: TemplatePayload) => void;
+  onLoad: (p: TemplatePayload) => string | void;
 }
 
 export default function TemplatesCard({ current, onLoad }: Props) {
@@ -20,8 +20,12 @@ export default function TemplatesCard({ current, onLoad }: Props) {
 
   const load = () => {
     if (!picked) return;
-    onLoad(picked.payload);
-    setMsg({ text: `"${picked.name}" 템플릿을 불러왔어요. 내용을 설비에 맞게 고쳐 주세요.` });
+    try {
+      const warn = onLoad(picked.payload);
+      setMsg({ text: `"${picked.name}" 템플릿을 불러왔어요. 내용을 설비에 맞게 고쳐 주세요.${warn ? " " + warn : ""}` });
+    } catch (e) {
+      setMsg({ text: (e as Error).message, err: true });
+    }
   };
 
   const save = async () => {

@@ -63,7 +63,15 @@ class TemplateInput(BaseModel):
     @field_validator("payload")
     @classmethod
     def limit_size(cls, v: dict) -> dict:
-        if len(str(v)) > 200_000 or len(v.get("config", {}).get("io_list", [])) > 1000:
+        cfg, conds = v.get("config"), v.get("conditions")
+        if not isinstance(cfg, dict) or not isinstance(conds, list):
+            raise ValueError("템플릿에는 설정(config)과 조건(conditions) 목록이 있어야 해요.")
+        if not all(isinstance(c, dict) and isinstance(c.get("text", ""), str) for c in conds):
+            raise ValueError("템플릿의 조건 형식이 올바르지 않아요.")
+        io = cfg.get("io_list", [])
+        if not isinstance(io, list) or not all(isinstance(r, dict) for r in io):
+            raise ValueError("템플릿의 입출력 목록 형식이 올바르지 않아요.")
+        if len(str(v)) > 200_000 or len(io) > 1000:
             raise ValueError("템플릿이 너무 커요.")
         return v
 

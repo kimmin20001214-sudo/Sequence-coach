@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import type { ValidationResult } from "./validate";
 import { Card, Field, Chips, Segmented } from "./ui";
 import TemplatesCard from "./TemplatesCard";
+import type { TemplatePayload } from "./api";
 import { parseIoCsv, downloadCsvTemplate } from "./csv";
 
 interface Props {
@@ -41,12 +42,26 @@ export default function SettingsStep({ cfg, setCfg, conditions, setConditions, r
     setCsvMsg({ text: `${rows.length}개 신호를 가져왔어요.${warnings.length ? " " + warnings.slice(0, 3).join(" ") : ""}` });
   };
 
-  const loadTemplate = (p: { config: Partial<Config>; conditions: Condition[] }) => {
+  const loadTemplate = (p: TemplatePayload): string | undefined => {
+    if (!p || typeof p.config !== "object" || p.config === null || !Array.isArray(p.conditions)) {
+      throw new Error("템플릿 내용이 올바르지 않아 불러오지 않았어요. 현재 입력은 그대로예요.");
+    }
     const base = initialConfig();
     const c = { ...base, ...p.config, safety_ack: false } as Config;
-    if (!c.io_list?.length) c.io_list = base.io_list;
+    let warn: string | undefined;
+    const s = SPEC[c.series];
+    if (c.series && !s) {
+      Object.assign(c, { series: "", cpu: "", language: "", software: "" });
+      warn = "템플릿의 PLC 시리즈를 찾을 수 없어 시리즈부터 다시 선택해 주세요.";
+    } else if (s && c.cpu && !(c.cpu in s.cpus)) {
+      c.cpu = "";
+      warn = "템플릿의 CPU를 찾을 수 없어 CPU를 다시 선택해 주세요.";
+    }
+    if (!Array.isArray(c.io_list) || !c.io_list.length) c.io_list = base.io_list;
+    const conds = p.conditions.filter((x) => x && typeof x.text === "string");
     setCfg(c);
-    setConditions(p.conditions.length ? p.conditions.map((x) => ({ text: x.text, must_pass: x.must_pass })) : [{ text: "", must_pass: true }]);
+    setConditions(conds.length ? conds.map((x) => ({ text: x.text, must_pass: x.must_pass !== false })) : [{ text: "", must_pass: true }]);
+    return warn;
   };
 
   return (
@@ -87,10 +102,10 @@ export default function SettingsStep({ cfg, setCfg, conditions, setConditions, r
               {spec?.software.map((s) => <option key={s}>{s}</option>)}
             </select>
           </Field>
-          <Field label="입력(X) 점수" required error={f.x_points} hint={cfg.cpu ? `최대 ${spec.cpus[cfg.cpu].max_x}점` : undefined}>
+          <Field label="입력(X) 점수" required error={f.x_points} hint={spec?.cpus[cfg.cpu] ? `최대 ${spec.cpus[cfg.cpu].max_x}점` : undefined}>
             <input type="number" min={0} value={cfg.x_points} onChange={(e) => update({ x_points: e.target.value })} />
           </Field>
-          <Field label="출력(Y) 점수" required error={f.y_points} hint={cfg.cpu ? `최대 ${spec.cpus[cfg.cpu].max_y}점` : undefined}>
+          <Field label="출력(Y) 점수" required error={f.y_points} hint={spec?.cpus[cfg.cpu] ? `최대 ${spec.cpus[cfg.cpu].max_y}점` : undefined}>
             <input type="number" min={0} value={cfg.y_points} onChange={(e) => update({ y_points: e.target.value })} />
           </Field>
         </div>

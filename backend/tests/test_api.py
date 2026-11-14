@@ -67,6 +67,19 @@ def test_io_errors(client):
     assert set(io) == {"1", "2", "3", "4"}
 
 
+def test_same_address_written_differently_is_duplicate(client):
+    p = valid_project()
+    p["io_list"] = [{"device": "X1", "name": "A"}, {"device": "X01", "name": "B"}, {"device": "Y1", "name": "C"}]
+    io = client.post("/validate", json=p).json()["io"]
+    assert set(io) == {"1"}
+
+
+def test_template_structure_is_checked(client):
+    for payload in ({}, {"config": [], "conditions": []}, {"config": {}, "conditions": "x"},
+                    {"config": {}, "conditions": [1]}, {"config": {"io_list": [1]}, "conditions": []}):
+        assert client.post("/templates", json={"name": "t", "payload": payload}).status_code == 422, payload
+
+
 def test_emergency_stop_and_name(client):
     p = valid_project(project_name="bad name!")
     p["plc_config"]["emergency_stop"] = {"used": True, "device": ""}
