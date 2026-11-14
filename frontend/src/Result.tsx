@@ -194,7 +194,6 @@ export function DownloadPanel({ d, cpu }: { d: DesignData; cpu?: string }) {
         <button type="button" className="btn primary" onClick={() => setGuide(true)}>GX Works2에서 여는 방법 보기</button>
       </div>
       {guide && <GxGuide onClose={() => setGuide(false)} />}
-      <p className="notice">Q03UD에서 자기유지·타이머·카운터·SET/RST·분기 회로가 읽히는 것을 확인했어요. 다른 CPU 기종은 아직 확인하지 못했어요.</p>
     </section>
   );
 }
