@@ -27,9 +27,44 @@ def interlock_pair():
             ],
         }, outputs=[{"kind": "OUT", "target": "Y1"}],
     ))
+    fixed = to_split(fixed)
     broken = fixed.model_copy(deep=True)
     broken.rungs[1].condition.items.pop()
     return req, broken, fixed
+
+
+def to_split(ir):
+    """Y를 직접 구동하던 렁을 입력부(M) + 출력부(M→Y)로 나눈다."""
+    data = ir.model_dump()
+    inputs, outputs = [], []
+    for n, rung in enumerate(data["rungs"]):
+        y = rung["outputs"][0]["target"]
+        m = f"M{n}"
+
+        def swap(node):
+            if node["type"] == "contact":
+                node["signal"] = m if node["signal"] == y else node["signal"]
+            else:
+                for item in node["items"]:
+                    swap(item)
+
+        swap(rung["condition"])
+        inputs.append({**rung, "outputs": [{"kind": "OUT", "target": m}]})
+        outputs.append({"id": rung["id"] + "Y", "covers": rung["covers"], "outputs": [{"kind": "OUT", "target": y}],
+                        "condition": {"type": "contact", "kind": "NO", "signal": m}})
+    # 다른 렁이 참조하는 Y도 해당 M으로 바꾼다.
+    ymap = {r["outputs"][0]["target"]: f"M{i}" for i, r in enumerate(outputs)}
+
+    def swap_all(node):
+        if node["type"] == "contact":
+            node["signal"] = ymap.get(node["signal"], node["signal"])
+        else:
+            for item in node["items"]:
+                swap_all(item)
+
+    for rung in inputs:
+        swap_all(rung["condition"])
+    return Ir.model_validate({"version": 1, "rungs": inputs + outputs})
 
 
 def test_broken_interlock_repaired_by_person_passes_real_verification():

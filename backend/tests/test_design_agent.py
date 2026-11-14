@@ -10,7 +10,7 @@ from app.contracts import StructuredRequirements
 from app.plc.design_check import check_design
 from test_agents import KEY, make_project
 
-CASES = json.loads((Path(__file__).parent / "fixtures" / "ir_cases.json").read_text(encoding="utf-8"))
+CASES = json.loads((Path(__file__).parent / "fixtures" / "ir_cases_split.json").read_text(encoding="utf-8"))
 
 
 def load(name):
@@ -33,6 +33,7 @@ def test_missing_condition_coverage_is_rejected():
 
     req, ir, _ = load("self_hold")
     ir["rungs"][0]["covers"] = []
+    ir["rungs"][1]["covers"] = []
     result, problems = check_design(req, Ir.model_validate(ir))
     assert result is None and any("UNMET_CONDITION" in p for p in problems)
 
@@ -75,6 +76,24 @@ def test_no_button_estop_needs_b_contact():
     req.io_list[[r.device for r in req.io_list].index(estop)].kind = "푸시버튼 NC (b접점)"
     _, problems = check_design(req, Ir.model_validate(ir))
     assert problems == []
+
+
+def test_io_split_rules():
+    from app.contracts import Ir
+
+    req, ir, _ = load("self_hold")
+    direct = json.loads(json.dumps(ir))
+    direct["rungs"][1]["condition"] = {"type": "contact", "kind": "NO", "signal": "X1"}
+    _, problems = check_design(req, Ir.model_validate(direct))
+    assert any("IO_SPLIT" in p and "직접" in p for p in problems)
+    swapped = json.loads(json.dumps(ir))
+    swapped["rungs"].reverse()
+    _, problems = check_design(req, Ir.model_validate(swapped))
+    assert any("IO_SPLIT" in p and "앞에" in p for p in problems)
+    mixed = json.loads(json.dumps(ir))
+    mixed["rungs"][1]["outputs"].append(mixed["rungs"][0]["outputs"][0])
+    _, problems = check_design(req, Ir.model_validate(mixed))
+    assert any("IO_SPLIT" in p and "섞지" in p for p in problems)
 
 
 def test_non_q_series_is_rejected():

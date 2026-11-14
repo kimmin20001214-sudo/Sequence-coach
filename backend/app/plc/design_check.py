@@ -63,12 +63,31 @@ def check_design(req: StructuredRequirements, ir: Ir) -> tuple[DesignResult | No
             if c.kind != want:
                 label = "b접점(NC)" if want == "NC" else "a접점(NO)"
                 problems.append(f"[KIND_MISMATCH] {row.device}는 {row.kind}라서 {label}으로 써야 해요.                 (단 {rung.id})")
+    def kind_of(signal: str) -> str:
+        row = rows.get(signal.strip().upper())
+        return (row.device if row else signal).strip().upper()[:1]
+
+    # 입력부(X 접점 → 내부 릴레이 M)와 출력부(M 접점 → 출력 Y)를 나눈다.
+    in_output_part = False
+    for rung in ir.rungs:
+        drives_y = any(kind_of(o.target) == "Y" for o in rung.outputs)
+        if drives_y:
+            in_output_part = True
+            if any(kind_of(o.target) != "Y" for o in rung.outputs):
+                problems.append(f"[IO_SPLIT] 단 {rung.id}: 출력 Y 코일은 M·T 같은 다른 출력과 한 렁에 섞지 말고 출력부에 따로 두세요.")
+            if any(kind_of(c.signal) == "X" for c in _contacts(rung.condition)):
+                problems.append(f"[IO_SPLIT] 단 {rung.id}: 출력 Y는 입력 X를 직접 쓰지 말고 입력부의 내부 릴레이 M 접점으로 구동하세요.")
+        elif in_output_part:
+            problems.append(f"[IO_SPLIT] 단 {rung.id}: 입력부 렁(M·T·C 출력)은 출력부(Y) 렁보다 앞에 두세요.")
+
     estop = cfg.emergency_stop
     if estop.used:
         stop_row = rows.get(estop.device.strip().upper())
         want = "NC"
         label = "NC 접점(b접점)"
         for rung in ir.rungs:
+            if not any(kind_of(c.signal) == "X" for c in _contacts(rung.condition)):
+                continue
             names = {c.signal.strip().upper() for c in _contacts(rung.condition) if c.kind == want}
             if stop_row is None or not names & {stop_row.device.strip().upper(), stop_row.name.strip().upper()}:
                 problems.append(f"[ESTOP_MISSING] 비상정지 {estop.device}가 렁 {rung.id}에 {label}으로 직렬 연결되어야 해요.")
