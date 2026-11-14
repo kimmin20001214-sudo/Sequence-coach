@@ -4,3 +4,12 @@ services:
     runtime: docker
     plan: free
     healthCheckPath: /api/health
+    envVars:
+      - key: COPILOT_DIRECTLINE_SECRET
+        sync: false
+      - key: AGENT_API_KEY
+        sync: false
+      - key: ACCOUNTS
+        sync: false
+      - key: FIX_ENABLED
+        value: "1"
