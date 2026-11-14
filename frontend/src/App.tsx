@@ -169,6 +169,9 @@ function Wizard() {
               {step === 2 && <div className="actions"><button type="button" className="btn ghost" onClick={() => go(1)}>← 조건 수정</button><span /></div>}
             </>
           )}
+          {step > 0 && (
+            <div className="actions home-row"><button type="button" className="btn ghost" onClick={() => go(0)}>⌂ 처음으로</button><span /></div>
+          )}
         </main>
       </div>
     </div>
