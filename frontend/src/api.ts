@@ -11,6 +11,47 @@ export class ApiError extends Error {
   }
 }
 
+export interface User { username: string; role: string }
+
+export const AUTH_EXPIRED = "plc-auth-expired";
+
+// 로그인이 풀리면 App이 이 신호를 받아 로그인 화면으로 돌려 보낸다.
+function expired(r: Response): void {
+  if (r.status === 401) window.dispatchEvent(new Event(AUTH_EXPIRED));
+}
+
+export async function fetchMe(): Promise<User | null> {
+  let r: Response;
+  try {
+    r = await fetch(`${BASE}/auth/me`);
+  } catch {
+    throw new ApiError("서버에 연결할 수 없어요. 백엔드가 실행 중인지 확인해 주세요.");
+  }
+  if (r.status === 401) return null;
+  if (!r.ok) throw new ApiError(`로그인 상태를 확인하지 못했어요. (${r.status})`);
+  return r.json();
+}
+
+export async function login(username: string, password: string): Promise<User> {
+  let r: Response;
+  try {
+    r = await fetch(`${BASE}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+  } catch {
+    throw new ApiError("서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.");
+  }
+  if (r.status === 401 || r.status === 429) throw new ApiError((await r.json()).detail);
+  if (!r.ok) throw new ApiError(`로그인에 실패했어요. (${r.status})`);
+  return r.json();
+}
+
+export const logout = async (): Promise<void> => {
+  await fetch(`${BASE}/auth/logout`, { method: "POST" }).catch(() => undefined);
+};
+
 export async function fetchMeta(): Promise<Meta> {
   let r: Response;
   try {
@@ -41,7 +82,8 @@ async function call(path: string, init?: RequestInit): Promise<Response> {
   } catch {
     throw new ApiError("서버에 연결할 수 없어요. 백엔드가 실행 중인지 확인해 주세요.");
   }
-  if (!r.ok) throw new ApiError(r.status === 422 ? "입력 내용의 형식이 올바르지 않아요. (422)" : `요청에 실패했어요. (${r.status})`);
+  expired(r);
+  if (!r.ok) throw new ApiError(r.status === 401 ? "로그인이 필요해요." : r.status === 422 ? "입력 내용의 형식이 올바르지 않아요. (422)" : `요청에 실패했어요. (${r.status})`);
   return r;
 }
 
@@ -96,6 +138,7 @@ export async function runProject(id: string, answers: Answer[] = []): Promise<Jo
   } catch {
     throw new ApiError("서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.");
   }
+  expired(r);
   if (r.status === 503 || r.status === 409) throw new ApiError((await r.json()).detail);
   if (r.status === 422) {
     const d = (await r.json()).detail;
@@ -122,6 +165,7 @@ export async function saveProject(body: object): Promise<SavedProject> {
   } catch {
     throw new ApiError("서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.");
   }
+  expired(r);
   if (r.status === 422) {
     const data = await r.json();
     if (data.fields && data.io) {

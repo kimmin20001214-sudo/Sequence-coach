@@ -8,7 +8,7 @@
 | 문서 유형 | 기술 요구사항 정의서 (TRD) |
 | 버전 | v2 (구현 현황 반영, 2026-11-11) |
 | 관련 문서 | [PRD](PRD.md), [Copilot Studio 연결 가이드](copilot-studio.md), [backend/README](../backend/README.md) |
-| 구현 상태 | 입력·분석·설계·검증·수정·결과·모의 실행 구현됨. IL 파일(#44)과 파일 받기 화면 구현됨. 통합·배포(#45)는 안전 고지 테스트·사용자 가이드·배포 문서까지 했고, 로그인·접근 권한·배포는 예정 |
+| 구현 상태 | 입력·분석·설계·검증·수정·결과·모의 실행 구현됨. IL 파일(#44)과 파일 받기 화면 구현됨. 통합·배포(#45)는 안전 고지 테스트·사용자 가이드·배포 문서·로그인(계정 직접 생성, 쿠키 세션, 본인 데이터만 조회)까지 했고, 배포는 예정 |
 
 ## 2. 기술 원칙
 
@@ -113,6 +113,8 @@ INPUT_VALIDATED -> ANALYZING -> DESIGNING -> VERIFYING -> COMPLETED -> GENERATIN
 | 환경변수 | 용도 |
 | --- | --- |
 | `AGENT_API_KEY` | `/agent/*` 인증. 없으면 닫힘 |
+| `ACCOUNTS` | 시작 시 없는 계정 생성(`아이디:비밀번호[:admin]`, 쉼표로 구분) |
+| `AUTH_DISABLED` | `1`이면 로그인 끔(테스트·로컬 전용) |
 | `AGENT_DEMO=1` | 에이전트 없이 가짜 분석으로 화면 시험(`start-demo.bat`) |
 | `COPILOT_TIMEOUT_SECONDS` | 에이전트 응답 제한(기본 180) |
 | `DATABASE_PATH` | SQLite 경로(기본 `data.sqlite3`) |

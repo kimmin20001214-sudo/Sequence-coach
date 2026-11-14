@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   initialConfig, applyMeta, SAFETY_NOTICE, type Condition, type Config,
 } from "./spec";
-import { fetchMeta, fetchProject, saveProject, ApiError, type SavedProject } from "./api";
+import { fetchMeta, fetchMe, fetchProject, saveProject, logout, AUTH_EXPIRED, ApiError, type SavedProject, type User } from "./api";
+import Login from "./Login";
 import { validateConfig, hasErrors, type ValidationResult } from "./validate";
 import SettingsStep from "./SettingsStep";
 import ConditionsStep from "./ConditionsStep";
@@ -14,6 +15,27 @@ const STEPS = ["기본 설정", "동작 조건", "설계 요청", "검증 결과
 const LAST_PROJECT = "plc.lastProject";
 
 export default function App() {
+  const [user, setUser] = useState<User | null | "checking">("checking");
+  const [error, setError] = useState("");
+  const check = () => fetchMe().then(setUser).catch((e: Error) => { setError(e.message); setUser(null); });
+  useEffect(() => {
+    check();
+    const out = () => setUser(null);
+    window.addEventListener(AUTH_EXPIRED, out);
+    return () => window.removeEventListener(AUTH_EXPIRED, out);
+  }, []);
+  const onLogout = async () => {
+    await logout();
+    sessionStorage.removeItem(LAST_PROJECT);
+    setUser(null);
+  };
+
+  if (user === "checking") return <div className="shell"><p className="boot">로그인 상태를 확인하는 중…</p></div>;
+  if (!user) return <Login onLogin={(u) => { setError(""); setUser(u); }} notice={error} />;
+  return <Gate key={user.username} user={user} onLogout={onLogout} />;
+}
+
+function Gate({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [metaState, setMetaState] = useState<"loading" | "ready" | string>("loading");
   const load = () =>
     fetchMeta()
@@ -32,10 +54,10 @@ export default function App() {
         </div>
       </div>
     );
-  return <Wizard />;
+  return <Wizard user={user} onLogout={onLogout} />;
 }
 
-function Wizard() {
+function Wizard({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [step, setStep] = useState(0);
   const [cfg, setCfg] = useState<Config>(initialConfig);
   const [result, setResult] = useState<ValidationResult | null>(null);
@@ -126,6 +148,12 @@ function Wizard() {
     <div className="shell">
       <div className="notice" role="note">⚠ {SAFETY_NOTICE}</div>
       <header className="top">
+        {user.username && (
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, fontSize: 13 }}>
+            <span>{user.username}</span>
+            <button type="button" className="btn ghost" style={{ marginTop: 0, padding: "6px 12px" }} onClick={onLogout}>로그아웃</button>
+          </div>
+        )}
         <div className="brand">
           <span className="logo">⚡</span>
           <div>

@@ -1,13 +1,16 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from . import db
+from . import auth, db
 from . import agent_api, mcp_api, run_api
 from .schemas import ProjectInput, TemplateInput
 from .spec import get_series, load_builtin_templates, load_instructions, load_spec
 from .validation import has_errors, validate_project
 
 app = FastAPI(title="MELSEC PLC 회로 설계 지원 API")
+api = APIRouter(dependencies=[Depends(auth.current_user)])
+app.router.on_startup.append(auth.seed_accounts)
+app.include_router(auth.router)
 app.include_router(agent_api.router)
 app.include_router(run_api.router)
 app.include_router(mcp_api.router)
@@ -18,18 +21,18 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/meta")
+@api.get("/meta")
 def meta():
     """화면이 선택지를 그리는 데 필요한 전체 기준 데이터."""
     return load_spec()
 
 
-@app.get("/meta/series")
+@api.get("/meta/series")
 def meta_series():
     return list(load_spec()["series"])
 
 
-@app.get("/meta/cpus")
+@api.get("/meta/cpus")
 def meta_cpus(series: str):
     s = get_series(series)
     if not s:
@@ -37,7 +40,7 @@ def meta_cpus(series: str):
     return s["cpus"]
 
 
-@app.get("/meta/instructions")
+@api.get("/meta/instructions")
 def meta_instructions(series: str):
     ins = load_instructions()
     if series not in ins["series"]:
@@ -45,14 +48,14 @@ def meta_instructions(series: str):
     return {name: ins["details"][name] for name in ins["series"][series]}
 
 
-@app.post("/validate")
+@api.post("/validate")
 def validate(project: ProjectInput):
     result = validate_project(project)
     return {"ok": not has_errors(result), **result}
 
 
-@app.post("/projects", status_code=201)
-def create_project(project: ProjectInput):
+@api.post("/projects", status_code=201)
+def create_project(project: ProjectInput, user: dict = Depends(auth.current_user)):
     result = validate_project(project)
     if has_errors(result):
         return JSONResponse(status_code=422, content={"ok": False, **result})
@@ -65,27 +68,28 @@ def create_project(project: ProjectInput):
     payload["conditions"] = [
         {**c, "id": f"C{i + 1}", "text": c["text"].strip()} for i, c in enumerate(payload["conditions"]) if c["text"].strip()
     ]
-    return db.create_project(cfg["project_name"], payload)
+    return db.create_project(cfg["project_name"], payload, user["username"])
 
 
-@app.get("/templates")
-def templates():
-    return load_builtin_templates() + db.list_templates()
+@api.get("/templates")
+def templates(user: dict = Depends(auth.current_user)):
+    return load_builtin_templates() + db.list_templates(user["username"])
 
 
-@app.post("/templates", status_code=201)
-def create_template(t: TemplateInput):
-    return db.create_template(t.name, t.payload)
+@api.post("/templates", status_code=201)
+def create_template(t: TemplateInput, user: dict = Depends(auth.current_user)):
+    return db.create_template(t.name, t.payload, user["username"])
 
 
-@app.delete("/templates/{template_id}", status_code=204)
-def delete_template(template_id: str):
-    if not db.delete_template(template_id):
+@api.delete("/templates/{template_id}", status_code=204)
+def delete_template(template_id: str, user: dict = Depends(auth.current_user)):
+    if not db.delete_template(template_id, user["username"]):
         raise HTTPException(404, "삭제할 수 있는 템플릿이 없어요. (기본 템플릿은 삭제할 수 없어요.)")
 
 
-@app.get("/projects/{project_id}/status")
-def status(project_id: str):
+@api.get("/projects/{project_id}/status")
+def status(project_id: str, user: dict = Depends(auth.current_user)):
+    auth.own_project(project_id, user)
     return agent_api.project_status(project_id)
 
 
@@ -97,14 +101,18 @@ def agent_spec(request: Request):
     return agent_api.build_openapi(f"{proto}://{host}" if host else None)
 
 
-@app.get("/projects")
-def projects():
-    return db.list_projects()
+@api.get("/projects")
+def projects(user: dict = Depends(auth.current_user)):
+    return db.list_projects(user["username"])
 
 
-@app.get("/projects/{project_id}")
-def project(project_id: str):
+@api.get("/projects/{project_id}")
+def project(project_id: str, user: dict = Depends(auth.current_user)):
+    auth.own_project(project_id, user)
     found = db.get_project(project_id)
     if not found:
         raise HTTPException(404, "프로젝트를 찾을 수 없어요.")
     return found
+
+
+app.include_router(api)

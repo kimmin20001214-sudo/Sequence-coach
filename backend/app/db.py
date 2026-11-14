@@ -3,7 +3,7 @@ import json
 import os
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 
 def _db_path() -> str:
@@ -32,6 +32,19 @@ def _connect() -> sqlite3.Connection:
         "id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT NOT NULL, state TEXT NOT NULL, "
         "kind TEXT NOT NULL, data TEXT NOT NULL, created_at TEXT NOT NULL)"
     )
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS users ("
+        "username TEXT PRIMARY KEY, pw_hash TEXT NOT NULL, role TEXT NOT NULL, "
+        "disabled INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)"
+    )
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS sessions ("
+        "token_hash TEXT PRIMARY KEY, username TEXT NOT NULL, expires_at TEXT NOT NULL)"
+    )
+    for table in ("projects", "templates"):
+        cols = [r[1] for r in con.execute(f"PRAGMA table_info({table})")]
+        if "owner" not in cols:
+            con.execute(f"ALTER TABLE {table} ADD COLUMN owner TEXT NOT NULL DEFAULT ''")
     return con
 
 
@@ -94,30 +107,94 @@ def update_project_status(project_id: str, status: str) -> None:
         con.execute("UPDATE projects SET status = ? WHERE id = ?", (status, project_id))
 
 
-def list_templates() -> list[dict]:
+def list_templates(owner: str = "") -> list[dict]:
     with _connect() as con:
-        rows = con.execute("SELECT * FROM templates ORDER BY created_at DESC").fetchall()
+        rows = con.execute("SELECT * FROM templates WHERE owner = ? ORDER BY created_at DESC", (owner,)).fetchall()
     return [
         {"id": r["id"], "name": r["name"], "builtin": False, "payload": json.loads(r["payload"])} for r in rows
     ]
 
 
-def create_template(name: str, payload: dict) -> dict:
+def create_template(name: str, payload: dict, owner: str = "") -> dict:
     tid = "user-" + uuid.uuid4().hex[:10]
     with _connect() as con:
         con.execute(
-            "INSERT INTO templates VALUES (?, ?, ?, ?)",
-            (tid, name, json.dumps(payload, ensure_ascii=False), datetime.now(timezone.utc).isoformat(timespec="seconds")),
+            "INSERT INTO templates (id, name, payload, created_at, owner) VALUES (?, ?, ?, ?, ?)",
+            (tid, name, json.dumps(payload, ensure_ascii=False), _now(), owner),
         )
     return {"id": tid, "name": name, "builtin": False, "payload": payload}
 
 
-def delete_template(tid: str) -> bool:
+def delete_template(tid: str, owner: str = "") -> bool:
     with _connect() as con:
-        return con.execute("DELETE FROM templates WHERE id = ?", (tid,)).rowcount > 0
+        return con.execute("DELETE FROM templates WHERE id = ? AND owner = ?", (tid, owner)).rowcount > 0
 
 
-def create_project(name: str, payload: dict) -> dict:
+def project_owner(project_id: str) -> str | None:
+    with _connect() as con:
+        r = con.execute("SELECT owner FROM projects WHERE id = ?", (project_id,)).fetchone()
+    return r["owner"] if r else None
+
+
+def create_user(username: str, pw_hash: str, role: str) -> bool:
+    with _connect() as con:
+        try:
+            con.execute("INSERT INTO users (username, pw_hash, role, created_at) VALUES (?, ?, ?, ?)",
+                        (username, pw_hash, role, _now()))
+        except sqlite3.IntegrityError:
+            return False
+    return True
+
+
+def get_user(username: str) -> dict | None:
+    with _connect() as con:
+        r = con.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    return dict(r) if r else None
+
+
+def list_users() -> list[dict]:
+    with _connect() as con:
+        rows = con.execute("SELECT username, role, disabled, created_at FROM users ORDER BY created_at").fetchall()
+    return [dict(r) for r in rows]
+
+
+def set_password(username: str, pw_hash: str) -> bool:
+    with _connect() as con:
+        ok = con.execute("UPDATE users SET pw_hash = ? WHERE username = ?", (pw_hash, username)).rowcount > 0
+        con.execute("DELETE FROM sessions WHERE username = ?", (username,))
+    return ok
+
+
+def set_disabled(username: str, disabled: bool) -> bool:
+    with _connect() as con:
+        ok = con.execute("UPDATE users SET disabled = ? WHERE username = ?", (int(disabled), username)).rowcount > 0
+        if disabled:
+            con.execute("DELETE FROM sessions WHERE username = ?", (username,))
+    return ok
+
+
+def create_session(token_hash: str, username: str, hours: int) -> None:
+    expires = (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat(timespec="seconds")
+    with _connect() as con:
+        con.execute("DELETE FROM sessions WHERE expires_at < ?", (_now(),))
+        con.execute("INSERT INTO sessions VALUES (?, ?, ?)", (token_hash, username, expires))
+
+
+def user_for_session(token_hash: str) -> dict | None:
+    with _connect() as con:
+        r = con.execute(
+            "SELECT u.username, u.role FROM sessions s JOIN users u ON u.username = s.username "
+            "WHERE s.token_hash = ? AND s.expires_at > ? AND u.disabled = 0", (token_hash, _now()),
+        ).fetchone()
+    return dict(r) if r else None
+
+
+def delete_session(token_hash: str) -> None:
+    with _connect() as con:
+        con.execute("DELETE FROM sessions WHERE token_hash = ?", (token_hash,))
+
+
+def create_project(name: str, payload: dict, owner: str = "") -> dict:
     row = {
         "id": uuid.uuid4().hex[:12],
         "name": name,
@@ -126,8 +203,8 @@ def create_project(name: str, payload: dict) -> dict:
     }
     with _connect() as con:
         con.execute(
-            "INSERT INTO projects VALUES (?, ?, ?, ?, ?)",
-            (row["id"], name, json.dumps(payload, ensure_ascii=False), row["status"], row["created_at"]),
+            "INSERT INTO projects (id, name, payload, status, created_at, owner) VALUES (?, ?, ?, ?, ?, ?)",
+            (row["id"], name, json.dumps(payload, ensure_ascii=False), row["status"], row["created_at"], owner),
         )
     return {**row, **payload}
 
@@ -140,7 +217,9 @@ def get_project(project_id: str) -> dict | None:
     return {"id": r["id"], "status": r["status"], "created_at": r["created_at"], **json.loads(r["payload"])}
 
 
-def list_projects() -> list[dict]:
+def list_projects(owner: str = "") -> list[dict]:
     with _connect() as con:
-        rows = con.execute("SELECT id, name, status, created_at FROM projects ORDER BY created_at DESC").fetchall()
+        rows = con.execute(
+            "SELECT id, name, status, created_at FROM projects WHERE owner = ? ORDER BY created_at DESC", (owner,)
+        ).fetchall()
     return [dict(r) for r in rows]
