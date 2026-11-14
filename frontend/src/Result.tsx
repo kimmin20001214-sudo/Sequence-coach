@@ -143,7 +143,7 @@ export function Simulation({ d, v }: { d: DesignData; v?: VerificationData }) {
       {popup && (
         <div className="modal-back" onClick={() => setPopup(false)}>
           <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <h3>⚠ 실제 프로그램으로 확인하세요</h3>
+            <h3><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5L22.5 21h-21L12 2.5z" fill="#facc15" stroke="#facc15" strokeWidth="2" strokeLinejoin="round" /><path d="M12 9.5v5" stroke="#111" strokeWidth="2.2" strokeLinecap="round" /><circle cx="12" cy="17.6" r="1.3" fill="#111" /></svg>실제 프로그램으로 확인하세요</h3>
             <p>회로 논리가 맞는지 판별하는 모의 시뮬레이션이에요.<br /><strong className="warn-line">GX Works 등 실제 프로그램에서 반드시 다시 확인하세요.</strong></p>
             <button onClick={() => setPopup(false)}>확인</button>
           </div>
