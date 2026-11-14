@@ -10,7 +10,7 @@ import RunStep from "./RunStep";
 import { Card } from "./ui";
 import "./App.css";
 
-const STEPS = ["기본 설정", "동작 조건", "설계 요청", "검증 결과", "모의 실행"];
+const STEPS = ["기본 설정", "동작 조건", "설계 요청", "검증 결과", "모의 실행", "파일 받기"];
 const LAST_PROJECT = "plc.lastProject";
 
 export default function App() {
@@ -168,6 +168,9 @@ function Wizard() {
               {saved && <RunStep projectId={saved.id} page={step} onPage={go} />}
               {step === 2 && <div className="actions"><button type="button" className="btn ghost" onClick={() => go(1)}>← 조건 수정</button><span /></div>}
             </>
+          )}
+          {step > 0 && (
+            <div className="actions home-row"><button type="button" className="btn ghost" onClick={() => go(0)} aria-label="처음으로" title="처음으로"style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8" /><path d="M5 10v10h5v-6h4v6h5V10" /></svg>처음으로</button><span /></div>
           )}
         </main>
       </div>
