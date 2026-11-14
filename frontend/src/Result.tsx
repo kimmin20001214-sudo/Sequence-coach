@@ -189,7 +189,7 @@ export function DownloadPanel({ d, cpu }: { d: DesignData; cpu?: string }) {
       <div className="folds">
         <Fold title="명령어(IL) 보기"><pre>{d.il.join("\n")}</pre></Fold>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 14, marginTop: 14 }}>
         <button type="button" className="btn primary" onClick={() => downloadCsv(d.il, cpu)}>GX Works2 파일 받기 (.csv)</button>
         <button type="button" className="btn primary" onClick={() => setGuide(true)}>GX Works2에서 여는 방법 보기</button>
       </div>
