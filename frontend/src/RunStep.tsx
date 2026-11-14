@@ -209,7 +209,7 @@ export default function RunStep({ projectId, page, onPage }: { projectId: string
                   <input value={answers[q] ?? ""} onChange={(e) => setAnswers({ ...answers, [q]: e.target.value })} maxLength={500} />
                 </label>
               ))}
-              <button type="button" className="btn primary" disabled={running} onClick={() => start(true)}>답변 반영해 다시 분석</button>
+              <button type="button" className="btn primary" style={{ marginTop: 14 }} disabled={running} onClick={() => start(true)}>답변 반영해 다시 분석</button>
             </>
           )}
           {agentNotes.map((e) => <p key={e.created_at + String(e.data.text)}>💬 {String(e.data.text)}</p>)}
