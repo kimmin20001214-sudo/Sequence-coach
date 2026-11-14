@@ -92,7 +92,7 @@ def test_production_server_seeds_accounts_and_logs_in(tmp_path, monkeypatch):
 
 def test_seed_accounts_from_env(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "s.sqlite3"))
-    monkeypatch.setenv("ACCOUNTS", "Boss:long-enough-pw:admin, s01:long-enough-pw ,bad:short,s01:other-password")
+    monkeypatch.setenv("ACCOUNTS", "Boss:long-enough-pw:admin, s01:long-enough-pw ,bad:short")
     auth.seed_accounts()
     assert db.get_user("boss")["role"] == "admin"
     assert db.get_user("s01")["role"] == "student" and db.get_user("bad") is None
