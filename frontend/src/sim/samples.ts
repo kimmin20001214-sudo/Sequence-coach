@@ -23,10 +23,11 @@ export const SAMPLES: Sample[] = [
       version: 1,
       rungs: [
         {
-          id: 'R1', comment: '모터 자기유지', covers: ['C1', 'C2'],
-          condition: { type: 'AND', items: [{ type: 'OR', items: [no('X1'), no('Y0')] }, nc('X2')] },
-          outputs: [{ kind: 'OUT', target: 'Y0' }],
+          id: 'R1', comment: '모터 자기유지 (입력부)', covers: ['C1', 'C2'],
+          condition: { type: 'AND', items: [{ type: 'OR', items: [no('X1'), no('M0')] }, nc('X2')] },
+          outputs: [{ kind: 'OUT', target: 'M0' }],
         },
+        { id: 'R2', comment: 'M0 → 모터 출력 (출력부)', covers: ['C1', 'C2'], condition: no('M0'), outputs: [{ kind: 'OUT', target: 'Y0' }] },
       ],
     },
   },
@@ -49,12 +50,13 @@ export const SAMPLES: Sample[] = [
       version: 1,
       rungs: [
         {
-          id: 'R1', comment: '램프 자기유지', covers: ['C1', 'C3'],
-          condition: { type: 'AND', items: [{ type: 'OR', items: [no('X1'), no('Y0')] }, nc('X2')] },
-          outputs: [{ kind: 'OUT', target: 'Y0' }],
+          id: 'R1', comment: '램프 자기유지 (입력부)', covers: ['C1', 'C3'],
+          condition: { type: 'AND', items: [{ type: 'OR', items: [no('X1'), no('M0')] }, nc('X2')] },
+          outputs: [{ kind: 'OUT', target: 'M0' }],
         },
-        { id: 'R2', comment: '3초 지연 타이머', covers: ['C2'], condition: no('Y0'), outputs: [{ kind: 'TON', target: 'T0', preset_ms: 3000 }] },
-        { id: 'R3', comment: '지연 후 모터', covers: ['C2'], condition: no('T0'), outputs: [{ kind: 'OUT', target: 'Y1' }] },
+        { id: 'R2', comment: '3초 지연 타이머 (입력부)', covers: ['C2'], condition: no('M0'), outputs: [{ kind: 'TON', target: 'T0', preset_ms: 3000 }] },
+        { id: 'R3', comment: 'M0 → 램프 출력 (출력부)', covers: ['C1', 'C3'], condition: no('M0'), outputs: [{ kind: 'OUT', target: 'Y0' }] },
+        { id: 'R4', comment: '지연 후 모터 (출력부)', covers: ['C2'], condition: no('T0'), outputs: [{ kind: 'OUT', target: 'Y1' }] },
       ],
     },
   },
@@ -78,10 +80,11 @@ export const SAMPLES: Sample[] = [
       version: 1,
       rungs: [
         {
-          id: 'R1', comment: '정방향 자기유지 + 비상정지 + 역방향 인터록', covers: ['C1', 'C2', 'C3'],
-          condition: { type: 'AND', items: [nc('X0'), { type: 'OR', items: [no('X1'), no('Y0')] }, nc('X2'), nc('Y1')] },
-          outputs: [{ kind: 'OUT', target: 'Y0' }],
+          id: 'R1', comment: '정방향 자기유지 + 비상정지 + 역방향 인터록 (입력부)', covers: ['C1', 'C2', 'C3'],
+          condition: { type: 'AND', items: [nc('X0'), { type: 'OR', items: [no('X1'), no('M0')] },           nc('X2'), nc('Y1')] },
+          outputs: [{ kind: 'OUT', target: 'M0' }],
         },
+        { id: 'R2', comment: 'M0 → 정방향 출력 (출력부)', covers: ['C1', 'C2', 'C3'], condition: no('M0'), outputs: [{ kind: 'OUT', target: 'Y0' }] },
       ],
     },
   },
