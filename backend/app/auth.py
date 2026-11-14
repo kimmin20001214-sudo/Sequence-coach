@@ -70,9 +70,13 @@ def seed_accounts() -> None:
         name, _, rest = item.partition(":")
         password, _, role = rest.partition(":")
         name = name.strip().lower()
-        if not name or len(password) < MIN_PASSWORD or db.get_user(name):
+        if not name or len(password) < MIN_PASSWORD:
             continue
-        db.create_user(name, hash_password(password), "admin" if role == "admin" else "student")
+        existing = db.get_user(name)
+        if not existing:
+            db.create_user(name, hash_password(password), "admin" if role == "admin" else "student")
+        elif not verify_password(password, existing["pw_hash"]):
+            db.set_password(name, hash_password(password))
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
