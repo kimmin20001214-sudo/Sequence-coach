@@ -7,6 +7,7 @@ from app.main import app
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "t.sqlite3"))
+    monkeypatch.setenv("AUTH_DISABLED", "1")
     return TestClient(app)
 
 

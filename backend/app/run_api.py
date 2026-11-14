@@ -1,14 +1,15 @@
 """홈페이지가 쓰는 실행 API: 작업을 만들고 Copilot Studio 에이전트를 호출한다(방향 A)."""
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from . import db, preflight
+from . import auth
 from .agent_api import status_of
 from .agents import orchestrator, runner
 
-router = APIRouter(tags=["run"])
+router = APIRouter(tags=["run"], dependencies=[Depends(auth.current_user)])
 BUSY_SECONDS = 300
 
 
@@ -35,8 +36,9 @@ class RunRequest(BaseModel):
 
 
 @router.post("/projects/{project_id}/run", status_code=202)
-def run(project_id: str, body: RunRequest | None = None):
+def run(project_id: str, body: RunRequest | None = None, user: dict = Depends(auth.current_user)):
     """분석을 시작해요. 이전 질문에 답했다면 answers에 담아 다시 분석해요."""
+    auth.own_project(project_id, user)
     project = db.get_project(project_id)
     if not project:
         raise HTTPException(404, "프로젝트를 찾을 수 없어요.")
