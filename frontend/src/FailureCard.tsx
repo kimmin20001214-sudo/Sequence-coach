@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 type Info = { stage: string; title: string; what: string; todo: string[] };
 
 const GENERIC: Info = {
@@ -59,6 +61,24 @@ function failureInfo(code: string | undefined): Info {
 
 export function FailureCard({ state, code, reason }: { state: "FAILED" | "ESCALATED"; code?: string; reason: string }) {
   const info = failureInfo(code);
+  const [popup, setPopup] = useState(true);
+  return (
+    <>
+      {popup && (
+        <div className="modal-back" onClick={() => setPopup(false)}>
+          <div className="modal failure-modal" role="alertdialog" aria-modal="true" aria-label={info.title} onClick={(e) => e.stopPropagation()}>
+            <h3><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5L22.5 21h-21L12 2.5z" fill="#facc15" stroke="#facc15" strokeWidth="2" strokeLinejoin="round" /><path d="M12 9.5v5" stroke="#111" strokeWidth="2.2" strokeLinecap="round" /><circle cx="12" cy="17.6" r="1.3" fill="#111" /></svg>{info.title}</h3>
+            <p><strong className="warn-line">{state === "FAILED" ? "작업이 실패했어요" : "사람이 확인해 주세요"}</strong><br />{info.what}</p>
+            <button onClick={() => setPopup(false)}>확인</button>
+          </div>
+        </div>
+      )}
+      <FailureInline state={state} code={code} reason={reason} info={info} />
+    </>
+  );
+}
+
+function FailureInline({ state, code, reason, info }: { state: "FAILED" | "ESCALATED"; code?: string; reason: string; info: Info }) {
   return (
     <div className="failure-card" role="alert">
       <h4>⚠ {info.title}</h4>
