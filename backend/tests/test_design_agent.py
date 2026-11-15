@@ -139,7 +139,8 @@ def test_five_rejections_fail_the_job(client):
     for _ in range(5):
         r = client.post(f"/agent/jobs/{job_id}/design", headers=KEY, json={"ir": {"version": 1, "rungs": []}}).json()
     assert r["state"] == "FAILED" and r["ok"] is False
-
+    err = [e for e in db.list_events(job_id) if e["kind"] == "error"][-1]
+    assert err["data"]["code"] == "DESIGN_REJECTED"
 
 def test_get_design_input_needs_designing(client):
     job_id = to_designing(client)

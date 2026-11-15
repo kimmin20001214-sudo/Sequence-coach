@@ -3,6 +3,7 @@ import { fetchAgentMode, fetchProject, fetchStatus, runProject, ApiError, type J
 import { Card } from "./ui";
 import { Conditions, Design, DownloadPanel, Fixes, Simulation, Stepper, Summary, type DesignData, type VerificationData } from "./Result";
 import { CriteriaButton } from "./Criteria";
+import { FailureCard } from "./FailureCard";
 
 const STEPS = [
   { key: "analyze", label: "조건 분석" },
@@ -120,17 +121,18 @@ export default function RunStep({ projectId, page, onPage }: { projectId: string
     }
   };
 
-  const failReason = status?.state === "FAILED"
-    ? String([...status.events].reverse().find((e) => e.kind === "error")?.data.reason ?? "")
-    : "";
+  const lastEvent = (kind: string) => [...(status?.events ?? [])].reverse().find((e) => e.kind === kind)?.data;
+  const failData = status?.state === "FAILED" ? lastEvent("error") : undefined;
+  const failReason = failData ? String(failData.reason ?? "") : "";
+  const failCode = failData ? String(failData.code ?? "") : "";
   const agentNotes = status?.events.filter((e) => e.kind === "agent_message") ?? [];
   const design = [...(status?.events ?? [])].reverse().find((e) => e.kind === "design")?.data as DesignData | undefined;
   const fixes = (status?.events ?? []).filter((e) => e.kind === "fix_applied" || e.kind === "fix_rejected");
 
   const verification = [...(status?.events ?? [])].reverse().find((e) => e.kind === "verification")?.data as VerificationData | undefined;
-  const escalateReason = status?.state === "ESCALATED"
-    ? String([...status.events].reverse().find((e) => e.kind === "escalated")?.data.reason ?? "")
-    : "";
+  const escalateData = status?.state === "ESCALATED" ? lastEvent("escalated") : undefined;
+  const escalateReason = escalateData ? String(escalateData.reason ?? "") : "";
+  const escalateCode = escalateData ? String(escalateData.code ?? "") : "";
 
   const nav = (back: [string, number] | null, fwd: [string, number] | null) => (
     <div className="actions">
@@ -146,7 +148,7 @@ export default function RunStep({ projectId, page, onPage }: { projectId: string
           <>
             <Summary v={verification} fixCount={fixes.length} state={status.state} />
             <CriteriaButton />
-            {escalateReason && <div className="banner err" role="alert">{escalateReason}</div>}
+            {escalateData && <FailureCard state="ESCALATED" code={escalateCode} reason={escalateReason} />}
             <Conditions v={verification} />
             {fixes.length > 0 && <Fixes events={fixes} />}
             {design && <Design d={design} />}
@@ -199,7 +201,7 @@ export default function RunStep({ projectId, page, onPage }: { projectId: string
             <p className="elapsed" role="status">AI가 생각하는 시간이라 기다려야 해요. {TYPICAL[status.state] ?? ""}</p>
           )}
           {total && <p className="elapsed total">⏱ 총 경과 시간 {total}</p>}
-          {failReason && <div className="banner err" role="alert">{failReason}</div>}
+          {failData && <FailureCard state="FAILED" code={failCode} reason={failReason} />}
           {status.state === "NEEDS_INPUT" && (
             <>
               <p>아래 질문에 답하면 그 내용을 반영해 다시 분석해요.</p>
@@ -213,7 +215,7 @@ export default function RunStep({ projectId, page, onPage }: { projectId: string
             </>
           )}
           {agentNotes.map((e) => <p key={e.created_at + String(e.data.text)}>💬 {String(e.data.text)}</p>)}
-          {escalateReason && <div className="banner err" role="alert">{escalateReason}</div>}
+          {escalateData && <FailureCard state="ESCALATED" code={escalateCode} reason={escalateReason} />}
         </div>
       )}
       {nav(null, verification && !running ? ["검증 결과 보기 →", 3] : null)}

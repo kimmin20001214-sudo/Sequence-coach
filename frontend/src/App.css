@@ -68,6 +68,13 @@ select:disabled { background: var(--bg); color: var(--muted); }
 
 .banner { padding: 10px 14px; border-radius: 10px; font-size: 13px; margin: 12px 0; }
 .banner.err { background: var(--danger-soft); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent); }
+.failure-card { background: var(--danger-soft); border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent); border-radius: 10px; padding: 12px 16px; margin: 12px 0; font-size: 13px; }
+.failure-card h4 { margin: 0 0 4px; color: var(--danger); font-size: 15px; }
+.failure-card p { margin: 6px 0; }
+.failure-card ul { margin: 4px 0 8px 18px; padding: 0; }
+.failure-card .failure-meta { color: var(--danger); font-size: 12px; }
+.failure-card .failure-todo-title { font-weight: 600; margin-bottom: 0; }
+.failure-card summary { cursor: pointer; font-size: 12px; }
 
 .conds { display: flex; flex-direction: column; gap: 10px; }
 .cond { display: flex; gap: 8px; align-items: center; }
