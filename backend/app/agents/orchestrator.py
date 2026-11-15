@@ -54,8 +54,11 @@ def get_job_input(job_id: str) -> tuple[dict, dict]:
     return job, {**db.get_project(job["project_id"]), "answers": job_answers(job_id)}
 
 
-def fail_job(job_id: str, reason: str) -> dict:
-    """에이전트 호출 실패 등으로 더 진행할 수 없을 때 FAILED로 기록한다. 이미 끝난 작업은 그대로 둔다."""
+def fail_job(job_id: str, reason: str, code: str = "AGENT_CALL_FAILED") -> dict:
+    """에이전트 호출 실패 등으로 더 진행할 수 없을 때 FAILED로 기록한다. 이미 끝난 작업은 그대로 둔다.
+
+    code는 화면이 안내 문구를 고르는 실패 종류다(AGENT_CALL_FAILED, AGENT_TIMEOUT, DESIGN_REJECTED).
+    """
     job = db.get_job(job_id)
     if not job:
         raise KeyError(job_id)
@@ -63,7 +66,7 @@ def fail_job(job_id: str, reason: str) -> dict:
         return give_up_fix(job_id, reason)
     if "FAILED" not in TRANSITIONS[job["state"]]:
         return job
-    return _move(job, "FAILED", "error", {"reason": reason})
+    return _move(job, "FAILED", "error", {"reason": reason, "code": code})
 
 
 def give_up_fix(job_id: str, reason: str) -> dict:
@@ -74,7 +77,7 @@ def give_up_fix(job_id: str, reason: str) -> dict:
     if job["state"] != "FIXING":
         return job
     job = _move(job, "VERIFYING", "fix_failed", {"reason": reason})
-    return _move(job, "ESCALATED", "escalated", {"reason": reason})
+    return _move(job, "ESCALATED", "escalated", {"reason": reason, "code": "FIX_NO_RESPONSE"})
 
 
 def submit_requirements(job_id: str, analysis: LlmAnalysis) -> dict:
@@ -100,7 +103,7 @@ def report_verification(job_id: str, passed: bool) -> dict:
         return _move(job, "COMPLETED", "verified")
     if job["iteration"] >= job["max_iter"]:
         return _move(job, "ESCALATED", "escalated", {
-            "max_iter": job["max_iter"],
+            "max_iter": job["max_iter"], "code": "FIX_LIMIT",
             "reason": f"자동 수정을 {job['max_iter']}번 시도했지만 검증을 통과하지 못했어요. 사람이 확인해 주세요.",
         })
     return _move(job, "FIXING", "fix_requested", {"iteration": job["iteration"] + 1}, job["iteration"] + 1)
@@ -153,13 +156,13 @@ def run_verification(job_id: str) -> dict:
         rows, extra = _condition_rows(req, result)
     except Exception as exc:  # 판정 코드 오류로 작업이 VERIFYING에 멈추지 않게 한다
         db.add_event(job_id, "VERIFYING", "verification_error", {"reason": f"검증 중 오류가 났어요. ({type(exc).__name__})"})
-        return _move(job, "ESCALATED", "escalated", {"reason": "verification_error"})
+        return _move(job, "ESCALATED", "escalated", {"reason": f"검증 중 오류가 났어요. ({type(exc).__name__})", "code": "VERIFY_ERROR"})
     db.add_event(job_id, "VERIFYING", "verification", {
         "passed": result.passed, "conditions": rows, "problems": extra, "notice": VERIFY_NOTICE,
     })
     if result.passed or fix_enabled():
         return report_verification(job_id, result.passed)
-    return _move(job, "ESCALATED", "escalated", {"reason": "검증에 실패했어요. 자동 수정은 아직 준비 중이에요."})
+    return _move(job, "ESCALATED", "escalated", {"reason": "검증에 실패했어요. 자동 수정은 아직 준비 중이에요.", "code": "FIX_DISABLED"})
 
 
 def _designing_job(job_id: str) -> tuple[dict, list[dict]]:
@@ -218,7 +221,7 @@ def submit_design(job_id: str, ir: dict) -> dict:
     if tries >= MAX_DESIGN_TRIES:
         reason = f"설계가 {tries}번 거부됐어요: " + "; ".join(problems[:3])
         db.add_event(job_id, "DESIGNING", "design_error", {"reason": reason})
-        job = fail_job(job_id, reason)
+        job = fail_job(job_id, reason, "DESIGN_REJECTED")
     return {"job": job, "ok": False, "design": None, "errors": problems}
 
 

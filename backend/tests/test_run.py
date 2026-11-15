@@ -62,6 +62,7 @@ def test_agent_failure_marks_failed(client, monkeypatch):
     assert client.post(f"/projects/{pid}/run").status_code == 202
     s = client.get(f"/projects/{pid}/status").json()
     assert s["state"] == "FAILED"
+    assert [e for e in s["events"] if e["kind"] == "error"][-1]["data"]["code"] == "AGENT_CALL_FAILED"
     assert "secret-value" not in str(s)
 
 

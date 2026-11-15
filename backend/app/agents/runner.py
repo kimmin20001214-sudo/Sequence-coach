@@ -125,7 +125,7 @@ def run_directline(job_id: str, design: bool = False, fix: bool = False) -> None
             if act.get("type") == "message" and act.get("from", {}).get("id") != "plc-backend" and act.get("text"):
                 db.add_event(job_id, _state(job_id), "agent_message", {"text": act["text"][:1000]})
         time.sleep(POLL_SECONDS)
-    orchestrator.fail_job(job_id, "에이전트가 제한 시간 안에 결과를 보내지 않았어요.")
+    orchestrator.fail_job(job_id, "에이전트가 제한 시간 안에 결과를 보내지 않았어요.", "AGENT_TIMEOUT")
 
 
 def run_demo(job_id: str) -> None:

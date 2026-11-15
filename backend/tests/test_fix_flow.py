@@ -75,6 +75,7 @@ def test_rejected_fix_retries_then_escalates(client):
     assert states[-1][0] == "ESCALATED" and states[0] == ("FIXING", 2)
     events = db.list_events(job_id)
     assert [e for e in events if e["kind"] == "escalated"][-1]["data"]["reason"]
+    assert [e for e in events if e["kind"] == "escalated"][-1]["data"]["code"] == "FIX_LIMIT"
     assert any(e["kind"] == "fix_rejected" for e in events)
 
 
@@ -96,6 +97,8 @@ def test_fix_off_escalates_immediately(client, monkeypatch):
 def test_fail_job_in_fixing_escalates(client):
     job_id, _, _, _ = broken_job(client)
     assert orchestrator.fail_job(job_id, "응답 없음")["state"] == "ESCALATED"
+    esc = [e for e in db.list_events(job_id) if e["kind"] == "escalated"][-1]
+    assert esc["data"]["code"] == "FIX_NO_RESPONSE"
 
 
 def test_runner_calls_fix_agent_until_done(client, monkeypatch):
