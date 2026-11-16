@@ -11,5 +11,7 @@ services:
         sync: false
       - key: ACCOUNTS
         sync: false
+      - key: AUTH_DISABLED
+        value: "1"
       - key: FIX_ENABLED
         value: "1"
